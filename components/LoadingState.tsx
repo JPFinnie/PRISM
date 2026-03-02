@@ -1,38 +1,72 @@
 'use client';
 
+import { useState, useEffect } from 'react';
+
 const STEPS = [
-  'Computing portfolio metrics…',
-  'Scoring all possible actions…',
-  'Projecting base, recession & bull scenarios…',
-  'Generating AI insight…',
+  'Fetching portfolio data',
+  'Computing financial state',
+  'Running scenario analysis',
+  'Scoring candidate actions',
+  'Generating AI insights',
 ];
 
 export default function LoadingState() {
+  const [activeStep, setActiveStep] = useState(0);
+
+  useEffect(() => {
+    const timers: ReturnType<typeof setTimeout>[] = [];
+
+    STEPS.forEach((_, i) => {
+      const timer = setTimeout(() => {
+        setActiveStep(i + 1);
+      }, (i + 1) * 500);
+      timers.push(timer);
+    });
+
+    return () => {
+      timers.forEach(t => clearTimeout(t));
+    };
+  }, []);
+
   return (
     <div className="min-h-[60vh] flex flex-col items-center justify-center gap-8 px-4">
-      {/* Animated logo mark */}
-      <div className="flex items-center gap-2">
-        <span className="pulse-dot   w-3 h-3 rounded-full bg-navy-800" />
-        <span className="pulse-dot-2 w-3 h-3 rounded-full bg-navy-800" />
-        <span className="pulse-dot-3 w-3 h-3 rounded-full bg-navy-800" />
-      </div>
+      {/* Green spinner */}
+      <div className="spinner" />
 
+      {/* Title and subtitle */}
       <div className="text-center">
-        <p className="text-lg font-semibold text-navy-800">Analysing your portfolio</p>
-        <p className="text-sm text-gray-500 mt-1">This takes a few seconds</p>
+        <p
+          className="text-xl font-semibold"
+          style={{ color: 'var(--text)' }}
+        >
+          Analysing your portfolio
+        </p>
+        <p
+          className="text-sm mt-1"
+          style={{ color: 'var(--text-muted)' }}
+        >
+          This takes a few seconds
+        </p>
       </div>
 
-      <ul className="space-y-3 text-sm text-gray-600 w-full max-w-xs">
-        {STEPS.map((step, i) => (
-          <li key={i} className="flex items-center gap-3">
-            <span
-              className="w-5 h-5 rounded-full border-2 border-navy-700 border-t-transparent animate-spin"
-              style={{ animationDelay: `${i * 0.3}s` }}
-            />
-            {step}
-          </li>
-        ))}
-      </ul>
+      {/* Loading steps */}
+      <div className="space-y-3 w-full max-w-xs">
+        {STEPS.map((step, i) => {
+          let stepClass = 'loading-step';
+          if (i < activeStep) {
+            stepClass += ' done';
+          } else if (i === activeStep) {
+            stepClass += ' active';
+          }
+
+          return (
+            <div key={i} className={stepClass}>
+              <span className="step-dot" />
+              {step}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

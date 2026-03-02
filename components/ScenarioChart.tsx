@@ -15,9 +15,15 @@ const PW   = VW - PAD.left - PAD.right;
 const PH   = VH - PAD.top  - PAD.bottom;
 
 const COLORS: Record<string, string> = {
-  base:      '#2563EB',
-  recession: '#DC2626',
-  bull:      '#16A34A',
+  base:      '#3b82f6',
+  recession: '#ef4444',
+  bull:      '#10b981',
+};
+
+const ICONS: Record<string, string> = {
+  base:      '\u2694\uFE0F',
+  recession: '\uD83D\uDCC9',
+  bull:      '\uD83D\uDCC8',
 };
 
 function fmt(n: number): string {
@@ -40,39 +46,58 @@ function linePath(values: number[], years: number, maxVal: number): string {
     .join(' ');
 }
 
+function areaPath(values: number[], years: number, maxVal: number): string {
+  const line = values
+    .map((v, i) => `${i === 0 ? 'M' : 'L'}${xScale(i, years).toFixed(1)},${yScale(v, maxVal).toFixed(1)}`)
+    .join(' ');
+  const bottomRight = `L${xScale(values.length - 1, years).toFixed(1)},${(PAD.top + PH).toFixed(1)}`;
+  const bottomLeft  = `L${xScale(0, years).toFixed(1)},${(PAD.top + PH).toFixed(1)}`;
+  return `${line} ${bottomRight} ${bottomLeft} Z`;
+}
+
 export default function ScenarioChart({ scenarios, goalAmount, yearsToGoal }: Props) {
   const allVals  = scenarios.flatMap(s => s.yearByYearValues);
   const rawMax   = Math.max(...allVals, goalAmount);
-  const maxVal   = rawMax * 1.08; // 8% headroom
+  const maxVal   = rawMax * 1.08;
 
   const goalY    = yScale(goalAmount, maxVal);
 
-  // X-axis tick every 5 years
   const xTicks: number[] = [];
   for (let y = 0; y <= yearsToGoal; y += 5) xTicks.push(y);
   if (!xTicks.includes(yearsToGoal)) xTicks.push(yearsToGoal);
 
-  // Y-axis ticks (5 evenly spaced)
   const yTicks = [0, 0.25, 0.5, 0.75, 1].map(f => Math.round(maxVal * f));
 
   return (
-    <div className="card p-6 fade-up">
-      <h3 className="font-semibold text-gray-800 mb-4">Scenario Projections</h3>
+    <div className="card p-6 reveal">
+      {/* Section header */}
+      <div style={{ marginBottom: '24px' }}>
+        <h3
+          className="font-semibold text-lg"
+          style={{ color: 'var(--text)', marginBottom: '4px' }}
+        >
+          Scenario Analysis
+        </h3>
+        <p
+          className="text-sm"
+          style={{ color: 'var(--text-muted)' }}
+        >
+          Projected outcomes under three macro conditions
+        </p>
+      </div>
 
-      {/* Scenario probability badges */}
-      <div className="flex flex-wrap gap-3 mb-4">
+      {/* Scenario cards */}
+      <div className="scenario-grid" style={{ marginBottom: '24px' }}>
         {scenarios.map(s => (
-          <div key={s.name} className="flex items-center gap-2 text-sm">
-            <span className="w-3 h-3 rounded-full" style={{ background: COLORS[s.name] }} />
-            <span className="text-gray-600">{s.label}</span>
-            <span
-              className="font-semibold"
-              style={{ color: COLORS[s.name] }}
-            >
-              {s.goalProbability}% probability
-            </span>
-            <span className="text-gray-400">·</span>
-            <span className="text-gray-500">{fmt(s.finalValue)}</span>
+          <div key={s.name} className={`scenario-card ${s.name}`}>
+            <div className="scenario-icon">{ICONS[s.name]}</div>
+            <div className="scenario-name">{s.name}</div>
+            <div className="scenario-prob">{s.goalProbability}%</div>
+            <div className="scenario-sub">
+              {fmt(s.finalValue)} projected
+              <br />
+              {s.annualReturn > 0 ? '+' : ''}{s.annualReturn}% annual return
+            </div>
           </div>
         ))}
       </div>
@@ -83,13 +108,29 @@ export default function ScenarioChart({ scenarios, goalAmount, yearsToGoal }: Pr
         style={{ width: '100%', height: 'auto', display: 'block' }}
         aria-label="Scenario projection chart"
       >
+        <defs>
+          {/* Gradient fills for area under each line */}
+          <linearGradient id="grad-base" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.15" />
+            <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
+          </linearGradient>
+          <linearGradient id="grad-recession" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#ef4444" stopOpacity="0.15" />
+            <stop offset="100%" stopColor="#ef4444" stopOpacity="0" />
+          </linearGradient>
+          <linearGradient id="grad-bull" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#10b981" stopOpacity="0.15" />
+            <stop offset="100%" stopColor="#10b981" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+
         {/* Grid lines */}
         {yTicks.map(v => (
           <line
             key={v}
             x1={PAD.left} y1={yScale(v, maxVal)}
             x2={VW - PAD.right} y2={yScale(v, maxVal)}
-            stroke="#E5E7EB" strokeWidth="1"
+            stroke="rgba(255,255,255,0.06)" strokeWidth="1"
           />
         ))}
 
@@ -101,7 +142,7 @@ export default function ScenarioChart({ scenarios, goalAmount, yearsToGoal }: Pr
             y={yScale(v, maxVal) + 4}
             textAnchor="end"
             fontSize="10"
-            fill="#9CA3AF"
+            fill="#71717a"
           >
             {fmt(v)}
           </text>
@@ -115,7 +156,7 @@ export default function ScenarioChart({ scenarios, goalAmount, yearsToGoal }: Pr
             y={VH - 6}
             textAnchor="middle"
             fontSize="10"
-            fill="#9CA3AF"
+            fill="#71717a"
           >
             Yr {y}
           </text>
@@ -127,20 +168,29 @@ export default function ScenarioChart({ scenarios, goalAmount, yearsToGoal }: Pr
             <line
               x1={PAD.left} y1={goalY}
               x2={VW - PAD.right} y2={goalY}
-              stroke="#C8973A" strokeWidth="1.5" strokeDasharray="6,4"
+              stroke="#f59e0b" strokeWidth="1.5" strokeDasharray="6,4"
             />
             <text
               x={VW - PAD.right - 2}
               y={goalY - 4}
               textAnchor="end"
               fontSize="9"
-              fill="#C8973A"
+              fill="#f59e0b"
               fontWeight="600"
             >
               GOAL {fmt(goalAmount)}
             </text>
           </>
         )}
+
+        {/* Gradient area fills */}
+        {scenarios.map(s => (
+          <path
+            key={`area-${s.name}`}
+            d={areaPath(s.yearByYearValues, yearsToGoal, maxVal)}
+            fill={`url(#grad-${s.name})`}
+          />
+        ))}
 
         {/* Scenario lines */}
         {scenarios.map(s => (

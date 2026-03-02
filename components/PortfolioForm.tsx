@@ -3,6 +3,10 @@
 import { useState } from 'react';
 import { PortfolioInput, Holding, RiskTolerance, AssetClass } from '@/lib/types';
 
+/* ═══════════════════════════════════════════════════════════════════════
+   Types & Constants
+   ═══════════════════════════════════════════════════════════════════════ */
+
 interface HoldingRow {
   id:           string;
   symbol:       string;
@@ -13,20 +17,35 @@ interface HoldingRow {
   sector:       string;
 }
 
+type LifeStage = 'student' | 'early_career' | 'mid_career' | 'pre_retirement' | 'retired';
+type GoalPurpose = 'home' | 'retirement' | 'education' | 'travel' | 'emergency' | 'wealth';
+
 interface FormState {
-  holdings:            HoldingRow[];
-  cashBalance:         string;
-  tfsaRoom:            string;
-  rrspRoom:            string;
+  /* Step 0 – Welcome */
+  firstName:           string;
   riskTolerance:       RiskTolerance;
-  annualContribution:  string;
+
+  /* Step 1 – Life Stage */
+  lifeStage:           LifeStage;
+
+  /* Step 2 – Finances */
+  cashBalance:         string;
   annualIncome:        string;
   monthlyExpenses:     string;
+  annualContribution:  string;
+
+  /* Step 3 – Portfolio */
+  holdings:            HoldingRow[];
+  tfsaRoom:            string;
+  rrspRoom:            string;
+  targetEquityPct:     string;
+  targetFixedIncomePct: string;
+
+  /* Step 4 – Goal */
+  goalPurpose:         GoalPurpose;
   goalAmount:          string;
   goalYears:           string;
   goalDescription:     string;
-  targetEquityPct:     string;
-  targetFixedIncomePct: string;
 }
 
 const SECTORS = [
@@ -45,6 +64,13 @@ const BLANK_HOLDING = (): HoldingRow => ({
 });
 
 const DEMO: FormState = {
+  firstName:            'Alex',
+  riskTolerance:        'growth',
+  lifeStage:            'mid_career',
+  cashBalance:          '12400',
+  annualIncome:         '85000',
+  monthlyExpenses:      '5200',
+  annualContribution:   '12000',
   holdings: [
     { id: '1', symbol: 'TD.TO',  shares: '100', currentPrice: '83.50',  costBasis: '79.00',  assetClass: 'equity',       sector: 'Financial Services' },
     { id: '2', symbol: 'XIU.TO', shares: '250', currentPrice: '33.20',  costBasis: '31.00',  assetClass: 'equity',       sector: 'Other'              },
@@ -52,35 +78,76 @@ const DEMO: FormState = {
     { id: '4', symbol: 'ZAG.TO', shares: '200', currentPrice: '13.40',  costBasis: '14.80',  assetClass: 'fixed_income', sector: 'Fixed Income'       },
     { id: '5', symbol: 'RY.TO',  shares: '60',  currentPrice: '149.50', costBasis: '135.00', assetClass: 'equity',       sector: 'Financial Services' },
   ],
-  cashBalance:          '12400',
   tfsaRoom:             '18500',
   rrspRoom:             '32000',
-  riskTolerance:        'growth',
-  annualContribution:   '12000',
-  annualIncome:         '85000',
-  monthlyExpenses:      '5200',
+  targetEquityPct:      '75',
+  targetFixedIncomePct: '20',
+  goalPurpose:          'wealth',
   goalAmount:           '800000',
   goalYears:            '18',
   goalDescription:      'Financial independence fund',
-  targetEquityPct:      '75',
-  targetFixedIncomePct: '20',
 };
 
 const BLANK_FORM: FormState = {
-  holdings:             [BLANK_HOLDING()],
-  cashBalance:          '',
-  tfsaRoom:             '',
-  rrspRoom:             '',
+  firstName:            '',
   riskTolerance:        'balanced',
-  annualContribution:   '',
+  lifeStage:            'early_career',
+  cashBalance:          '',
   annualIncome:         '',
   monthlyExpenses:      '',
+  annualContribution:   '',
+  holdings:             [BLANK_HOLDING()],
+  tfsaRoom:             '',
+  rrspRoom:             '',
+  targetEquityPct:      '70',
+  targetFixedIncomePct: '25',
+  goalPurpose:          'wealth',
   goalAmount:           '',
   goalYears:            '',
   goalDescription:      '',
-  targetEquityPct:      '70',
-  targetFixedIncomePct: '25',
 };
+
+const TOTAL_STEPS = 5;
+
+const STEP_LABELS = [
+  'Welcome',
+  'Life Stage',
+  'Finances',
+  'Portfolio',
+  'Goal',
+];
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Selector Data
+   ═══════════════════════════════════════════════════════════════════════ */
+
+const RISK_OPTIONS: { value: RiskTolerance; icon: string; label: string; desc: string }[] = [
+  { value: 'conservative', icon: '🛡', label: 'Conservative', desc: 'Preserve capital' },
+  { value: 'balanced',     icon: '⚖',  label: 'Balanced',     desc: 'Steady growth'   },
+  { value: 'growth',       icon: '📈', label: 'Growth',       desc: 'Higher returns'  },
+  { value: 'aggressive',   icon: '🚀', label: 'Aggressive',   desc: 'Maximum growth'  },
+];
+
+const LIFE_STAGE_OPTIONS: { value: LifeStage; icon: string; label: string }[] = [
+  { value: 'student',        icon: '🎓', label: 'Student'         },
+  { value: 'early_career',   icon: '🚀', label: 'Early Career'    },
+  { value: 'mid_career',     icon: '💼', label: 'Mid Career'      },
+  { value: 'pre_retirement', icon: '🌱', label: 'Pre-Retirement'  },
+  { value: 'retired',        icon: '⛈',  label: 'Retired'         },
+];
+
+const GOAL_PURPOSE_OPTIONS: { value: GoalPurpose; icon: string; label: string }[] = [
+  { value: 'home',       icon: '🏠', label: 'Home'            },
+  { value: 'retirement', icon: '🌞', label: 'Retirement'      },
+  { value: 'education',  icon: '🏫', label: 'Education'       },
+  { value: 'travel',     icon: '✈',  label: 'Travel'          },
+  { value: 'emergency',  icon: '🛡', label: 'Emergency Fund'  },
+  { value: 'wealth',     icon: '💰', label: 'General Wealth'  },
+];
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Component
+   ═══════════════════════════════════════════════════════════════════════ */
 
 interface Props {
   onAnalyze: (portfolio: PortfolioInput) => void;
@@ -88,9 +155,10 @@ interface Props {
 
 export default function PortfolioForm({ onAnalyze }: Props) {
   const [form,  setForm]  = useState<FormState>(BLANK_FORM);
+  const [step,  setStep]  = useState(0);
   const [error, setError] = useState<string | null>(null);
 
-  // ── Holdings helpers ─────────────────────────────────────────────────────
+  /* ── Helpers ──────────────────────────────────────────────────────── */
   function updateHolding(id: string, field: keyof HoldingRow, value: string) {
     setForm(f => ({
       ...f,
@@ -109,9 +177,27 @@ export default function PortfolioForm({ onAnalyze }: Props) {
     }));
   }
 
-  // ── Parse & submit ───────────────────────────────────────────────────────
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  function loadDemo() {
+    setForm(DEMO);
+  }
+
+  /* ── Navigation ──────────────────────────────────────────────────── */
+  function goNext() {
+    setError(null);
+    if (step < TOTAL_STEPS - 1) {
+      setStep(s => s + 1);
+    } else {
+      handleSubmit();
+    }
+  }
+
+  function goBack() {
+    setError(null);
+    if (step > 0) setStep(s => s - 1);
+  }
+
+  /* ── Submit (original logic preserved) ───────────────────────────── */
+  function handleSubmit() {
     setError(null);
 
     const validHoldings = form.holdings.filter(
@@ -120,16 +206,17 @@ export default function PortfolioForm({ onAnalyze }: Props) {
 
     if (validHoldings.length === 0) {
       setError('Add at least one complete holding (symbol, shares, prices).');
+      setStep(3);
       return;
     }
 
     const goalAmount = parseFloat(form.goalAmount);
     const goalYears  = parseInt(form.goalYears);
 
-    if (!goalAmount || goalAmount <= 0) { setError('Enter a valid goal amount.'); return; }
-    if (!goalYears  || goalYears  <= 0) { setError('Enter a valid number of years.'); return; }
+    if (!goalAmount || goalAmount <= 0) { setError('Enter a valid goal amount.'); setStep(4); return; }
+    if (!goalYears  || goalYears  <= 0) { setError('Enter a valid number of years.'); setStep(4); return; }
 
-    const equityPct     = parseFloat(form.targetEquityPct)     || 70;
+    const equityPct      = parseFloat(form.targetEquityPct)      || 70;
     const fixedIncomePct = parseFloat(form.targetFixedIncomePct) || 25;
     const cashPct        = Math.max(0, 100 - equityPct - fixedIncomePct);
 
@@ -162,302 +249,709 @@ export default function PortfolioForm({ onAnalyze }: Props) {
     onAnalyze(portfolio);
   }
 
-  const inputClass =
-    'w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white';
+  /* ── Computed ─────────────────────────────────────────────────────── */
+  const progressPct = ((step + 1) / TOTAL_STEPS) * 100;
+  const cashPctCalc = Math.max(
+    0,
+    100 - (parseFloat(form.targetEquityPct) || 0) - (parseFloat(form.targetFixedIncomePct) || 0),
+  );
+  const isLastStep = step === TOTAL_STEPS - 1;
+
+  /* ═══════════════════════════════════════════════════════════════════
+     Render
+     ═══════════════════════════════════════════════════════════════════ */
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6 max-w-5xl mx-auto px-4 py-8">
+    <div style={{ maxWidth: 'var(--max-w)', margin: '0 auto', padding: '32px 20px 48px' }}>
 
       {/* ── Header ─────────────────────────────────────────────────── */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-bold text-gray-800">Enter Your Portfolio</h2>
-          <p className="text-sm text-gray-500">
-            Use data from your CIBC Investor's Edge account
-          </p>
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        marginBottom: 8,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span style={{ fontSize: '.78rem', fontWeight: 600, color: 'var(--text-muted)' }}>
+            Step {step + 1} of {TOTAL_STEPS}
+          </span>
+          <span style={{
+            fontSize: '.72rem', fontWeight: 600, color: 'var(--accent)',
+            background: 'var(--accent-bg)', padding: '3px 10px', borderRadius: 12,
+          }}>
+            {STEP_LABELS[step]}
+          </span>
         </div>
         <button
           type="button"
-          onClick={() => setForm(DEMO)}
-          className="text-sm text-blue-600 hover:text-blue-800 font-medium underline underline-offset-2"
+          onClick={loadDemo}
+          style={{
+            background: 'none', border: 'none', cursor: 'pointer',
+            fontSize: '.82rem', fontWeight: 600, color: 'var(--accent)',
+            fontFamily: 'var(--font)', textDecoration: 'underline',
+            textUnderlineOffset: 3,
+          }}
         >
           Load demo portfolio
         </button>
       </div>
 
-      {/* ── Holdings ───────────────────────────────────────────────── */}
-      <div className="card p-5">
-        <h3 className="font-semibold text-gray-700 mb-4">Holdings</h3>
-
-        {/* Table header */}
-        <div className="hidden sm:grid grid-cols-[2fr_1fr_1.2fr_1.2fr_1.5fr_1.5fr_auto] gap-2 text-xs font-medium text-gray-400 uppercase tracking-wide mb-2 px-1">
-          <span>Symbol</span>
-          <span>Shares</span>
-          <span>Current $</span>
-          <span>Cost Basis $</span>
-          <span>Asset Class</span>
-          <span>Sector</span>
-          <span />
-        </div>
-
-        <div className="space-y-2">
-          {form.holdings.map(h => (
-            <div
-              key={h.id}
-              className="grid grid-cols-2 sm:grid-cols-[2fr_1fr_1.2fr_1.2fr_1.5fr_1.5fr_auto] gap-2 items-center"
-            >
-              <input
-                placeholder="TD.TO"
-                value={h.symbol}
-                onChange={e => updateHolding(h.id, 'symbol', e.target.value)}
-                className={inputClass + ' uppercase'}
-              />
-              <input
-                placeholder="100"
-                type="number"
-                min="0"
-                value={h.shares}
-                onChange={e => updateHolding(h.id, 'shares', e.target.value)}
-                className={inputClass}
-              />
-              <input
-                placeholder="83.50"
-                type="number"
-                min="0"
-                step="0.01"
-                value={h.currentPrice}
-                onChange={e => updateHolding(h.id, 'currentPrice', e.target.value)}
-                className={inputClass}
-              />
-              <input
-                placeholder="79.00"
-                type="number"
-                min="0"
-                step="0.01"
-                value={h.costBasis}
-                onChange={e => updateHolding(h.id, 'costBasis', e.target.value)}
-                className={inputClass}
-              />
-              <select
-                value={h.assetClass}
-                onChange={e => updateHolding(h.id, 'assetClass', e.target.value as AssetClass)}
-                className={inputClass}
-              >
-                <option value="equity">Equity</option>
-                <option value="fixed_income">Fixed Income</option>
-                <option value="cash">Cash</option>
-                <option value="alternative">Alternative</option>
-              </select>
-              <select
-                value={h.sector}
-                onChange={e => updateHolding(h.id, 'sector', e.target.value)}
-                className={inputClass}
-              >
-                {SECTORS.map(s => <option key={s}>{s}</option>)}
-              </select>
-              <button
-                type="button"
-                onClick={() => removeHolding(h.id)}
-                disabled={form.holdings.length === 1}
-                className="text-gray-300 hover:text-red-400 disabled:opacity-20 transition-colors text-lg leading-none px-1"
-                aria-label="Remove holding"
-              >
-                ×
-              </button>
-            </div>
-          ))}
-        </div>
-
-        <button
-          type="button"
-          onClick={addHolding}
-          className="mt-3 text-sm text-blue-600 hover:text-blue-800 font-medium"
-        >
-          + Add holding
-        </button>
+      {/* ── Progress Bar ───────────────────────────────────────────── */}
+      <div className="wiz-progress">
+        <div
+          className="wiz-progress-fill"
+          style={{ width: `${progressPct}%` }}
+        />
       </div>
 
-      {/* ── Financial details ───────────────────────────────────────── */}
-      <div className="grid md:grid-cols-2 gap-4">
-
-        {/* Cash & Tax */}
-        <div className="card p-5 space-y-4">
-          <h3 className="font-semibold text-gray-700">Cash &amp; Tax Room</h3>
-          <div>
-            <label className="text-xs text-gray-500 block mb-1">Cash Balance ($)</label>
-            <input
-              placeholder="12,400"
-              type="number"
-              min="0"
-              value={form.cashBalance}
-              onChange={e => setForm(f => ({ ...f, cashBalance: e.target.value }))}
-              className={inputClass}
-            />
-          </div>
-          <div>
-            <label className="text-xs text-gray-500 block mb-1">Remaining TFSA Room ($)</label>
-            <input
-              placeholder="18,500"
-              type="number"
-              min="0"
-              value={form.tfsaRoom}
-              onChange={e => setForm(f => ({ ...f, tfsaRoom: e.target.value }))}
-              className={inputClass}
-            />
-          </div>
-          <div>
-            <label className="text-xs text-gray-500 block mb-1">Remaining RRSP Room ($)</label>
-            <input
-              placeholder="32,000"
-              type="number"
-              min="0"
-              value={form.rrspRoom}
-              onChange={e => setForm(f => ({ ...f, rrspRoom: e.target.value }))}
-              className={inputClass}
-            />
-          </div>
-          <div>
-            <label className="text-xs text-gray-500 block mb-1">
-              Gross Annual Income ($) <span className="text-gray-400">(optional)</span>
-            </label>
-            <input
-              placeholder="85,000"
-              type="number"
-              min="0"
-              value={form.annualIncome}
-              onChange={e => setForm(f => ({ ...f, annualIncome: e.target.value }))}
-              className={inputClass}
-            />
-          </div>
-          <div>
-            <label className="text-xs text-gray-500 block mb-1">
-              Monthly Expenses ($) <span className="text-gray-400">(optional)</span>
-            </label>
-            <input
-              placeholder="5,200"
-              type="number"
-              min="0"
-              value={form.monthlyExpenses}
-              onChange={e => setForm(f => ({ ...f, monthlyExpenses: e.target.value }))}
-              className={inputClass}
-            />
-          </div>
-        </div>
-
-        {/* Investment Goal */}
-        <div className="card p-5 space-y-4">
-          <h3 className="font-semibold text-gray-700">Investment Goal</h3>
-          <div>
-            <label className="text-xs text-gray-500 block mb-1">Target Amount ($)</label>
-            <input
-              placeholder="800,000"
-              type="number"
-              min="1"
-              value={form.goalAmount}
-              onChange={e => setForm(f => ({ ...f, goalAmount: e.target.value }))}
-              className={inputClass}
-            />
-          </div>
-          <div>
-            <label className="text-xs text-gray-500 block mb-1">Years to Goal</label>
-            <input
-              placeholder="18"
-              type="number"
-              min="1"
-              max="50"
-              value={form.goalYears}
-              onChange={e => setForm(f => ({ ...f, goalYears: e.target.value }))}
-              className={inputClass}
-            />
-          </div>
-          <div>
-            <label className="text-xs text-gray-500 block mb-1">Description (optional)</label>
-            <input
-              placeholder="Financial independence"
-              value={form.goalDescription}
-              onChange={e => setForm(f => ({ ...f, goalDescription: e.target.value }))}
-              className={inputClass}
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* ── Portfolio settings ──────────────────────────────────────── */}
-      <div className="card p-5">
-        <h3 className="font-semibold text-gray-700 mb-4">Portfolio Settings</h3>
-        <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-4">
-          <div>
-            <label className="text-xs text-gray-500 block mb-1">Risk Tolerance</label>
-            <select
-              value={form.riskTolerance}
-              onChange={e => setForm(f => ({ ...f, riskTolerance: e.target.value as RiskTolerance }))}
-              className={inputClass}
-            >
-              <option value="conservative">Conservative</option>
-              <option value="balanced">Balanced</option>
-              <option value="growth">Growth</option>
-              <option value="aggressive">Aggressive</option>
-            </select>
-          </div>
-          <div>
-            <label className="text-xs text-gray-500 block mb-1">Annual Contribution ($)</label>
-            <input
-              placeholder="12,000"
-              type="number"
-              min="0"
-              value={form.annualContribution}
-              onChange={e => setForm(f => ({ ...f, annualContribution: e.target.value }))}
-              className={inputClass}
-            />
-          </div>
-          <div>
-            <label className="text-xs text-gray-500 block mb-1">Target Equity (%)</label>
-            <input
-              placeholder="70"
-              type="number"
-              min="0"
-              max="100"
-              value={form.targetEquityPct}
-              onChange={e => setForm(f => ({ ...f, targetEquityPct: e.target.value }))}
-              className={inputClass}
-            />
-          </div>
-          <div>
-            <label className="text-xs text-gray-500 block mb-1">Target Fixed Income (%)</label>
-            <input
-              placeholder="25"
-              type="number"
-              min="0"
-              max="100"
-              value={form.targetFixedIncomePct}
-              onChange={e => setForm(f => ({ ...f, targetFixedIncomePct: e.target.value }))}
-              className={inputClass}
-            />
-          </div>
-        </div>
-        <p className="text-xs text-gray-400 mt-3">
-          Cash target = 100% − equity% − fixed income%
-          {' · '}current cash target:{' '}
-          <strong>
-            {Math.max(0, 100 - (parseFloat(form.targetEquityPct) || 0) - (parseFloat(form.targetFixedIncomePct) || 0))}%
-          </strong>
-        </p>
-      </div>
-
-      {/* ── Error & submit ──────────────────────────────────────────── */}
+      {/* ── Error Banner ───────────────────────────────────────────── */}
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">
+        <div style={{
+          background: 'var(--red-bg)', border: '1px solid var(--red)',
+          color: 'var(--red)', fontSize: '.85rem', fontWeight: 500,
+          borderRadius: 'var(--radius-sm)', padding: '12px 18px', marginBottom: 24,
+        }}>
           {error}
         </div>
       )}
 
-      <button
-        type="submit"
-        className="w-full bg-navy-800 hover:bg-navy-900 text-white font-semibold py-3.5 px-6 rounded-xl transition-colors text-sm"
-        style={{ backgroundColor: '#132558' }}
-      >
-        Analyse My Portfolio →
-      </button>
-    </form>
+      {/* ═══════════════════════════════════════════════════════════════
+         STEP 0 – Welcome
+         ═══════════════════════════════════════════════════════════════ */}
+      {step === 0 && (
+        <div className="fade-up">
+          <div style={{ textAlign: 'center', marginBottom: 40 }}>
+            <h1 style={{
+              fontSize: '2rem', fontWeight: 800, letterSpacing: '-.03em',
+              color: 'var(--text)', marginBottom: 8,
+            }}>
+              Welcome to Nexus Edge
+            </h1>
+            <p style={{ fontSize: '.95rem', color: 'var(--text-muted)', maxWidth: 440, margin: '0 auto' }}>
+              Let&apos;s analyze your portfolio. This takes about 2 minutes.
+            </p>
+          </div>
+
+          {/* First Name */}
+          <div className="card" style={{ padding: '28px 28px 32px', marginBottom: 28 }}>
+            <label style={{
+              display: 'block', fontSize: '.78rem', fontWeight: 600,
+              color: 'var(--text-muted)', textTransform: 'uppercase',
+              letterSpacing: '.05em', marginBottom: 8,
+            }}>
+              First Name <span style={{ color: 'var(--text-light)', textTransform: 'none', fontWeight: 400 }}>(optional)</span>
+            </label>
+            <input
+              className="input"
+              placeholder="e.g. Alex"
+              value={form.firstName}
+              onChange={e => setForm(f => ({ ...f, firstName: e.target.value }))}
+            />
+          </div>
+
+          {/* Risk Tolerance */}
+          <div className="card" style={{ padding: '28px 28px 32px' }}>
+            <label style={{
+              display: 'block', fontSize: '.78rem', fontWeight: 600,
+              color: 'var(--text-muted)', textTransform: 'uppercase',
+              letterSpacing: '.05em', marginBottom: 16,
+            }}>
+              Risk Tolerance
+            </label>
+            <div className="card-selector" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
+              {RISK_OPTIONS.map(opt => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  className={`sel-card${form.riskTolerance === opt.value ? ' selected' : ''}`}
+                  onClick={() => setForm(f => ({ ...f, riskTolerance: opt.value }))}
+                >
+                  <span className="sel-icon">{opt.icon}</span>
+                  <span className="sel-label">{opt.label}</span>
+                  <span style={{ fontSize: '.72rem', color: 'var(--text-muted)', fontWeight: 400 }}>
+                    {opt.desc}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════════════════════
+         STEP 1 – Life Stage
+         ═══════════════════════════════════════════════════════════════ */}
+      {step === 1 && (
+        <div className="fade-up">
+          <div style={{ textAlign: 'center', marginBottom: 32 }}>
+            <h2 style={{
+              fontSize: '1.5rem', fontWeight: 800, letterSpacing: '-.02em',
+              color: 'var(--text)', marginBottom: 6,
+            }}>
+              Where are you in life?
+            </h2>
+            <p style={{ fontSize: '.88rem', color: 'var(--text-muted)' }}>
+              This helps us tailor our analysis to your situation.
+            </p>
+          </div>
+
+          <div className="card" style={{ padding: '32px 28px' }}>
+            <div className="card-selector" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}>
+              {LIFE_STAGE_OPTIONS.map(opt => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  className={`sel-card${form.lifeStage === opt.value ? ' selected' : ''}`}
+                  onClick={() => setForm(f => ({ ...f, lifeStage: opt.value }))}
+                >
+                  <span className="sel-icon">{opt.icon}</span>
+                  <span className="sel-label">{opt.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════════════════════
+         STEP 2 – Finances
+         ═══════════════════════════════════════════════════════════════ */}
+      {step === 2 && (
+        <div className="fade-up">
+          <div style={{ textAlign: 'center', marginBottom: 32 }}>
+            <h2 style={{
+              fontSize: '1.5rem', fontWeight: 800, letterSpacing: '-.02em',
+              color: 'var(--text)', marginBottom: 6,
+            }}>
+              Your Finances
+            </h2>
+            <p style={{ fontSize: '.88rem', color: 'var(--text-muted)' }}>
+              We use this to model savings capacity and cash reserves.
+            </p>
+          </div>
+
+          <div className="card" style={{ padding: '32px 28px' }}>
+            <div style={{
+              display: 'grid', gridTemplateColumns: '1fr 1fr',
+              gap: 24,
+            }}>
+              {/* Cash Balance */}
+              <div>
+                <label style={{
+                  display: 'block', fontSize: '.78rem', fontWeight: 600,
+                  color: 'var(--text-muted)', textTransform: 'uppercase',
+                  letterSpacing: '.05em', marginBottom: 8,
+                }}>
+                  Cash Balance
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <span style={{
+                    position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)',
+                    color: 'var(--text-light)', fontSize: '.92rem', fontWeight: 600, pointerEvents: 'none',
+                  }}>$</span>
+                  <input
+                    className="input"
+                    style={{ paddingLeft: 30 }}
+                    placeholder="12,400"
+                    type="number"
+                    min="0"
+                    value={form.cashBalance}
+                    onChange={e => setForm(f => ({ ...f, cashBalance: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              {/* Annual Contribution */}
+              <div>
+                <label style={{
+                  display: 'block', fontSize: '.78rem', fontWeight: 600,
+                  color: 'var(--text-muted)', textTransform: 'uppercase',
+                  letterSpacing: '.05em', marginBottom: 8,
+                }}>
+                  Annual Contribution
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <span style={{
+                    position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)',
+                    color: 'var(--text-light)', fontSize: '.92rem', fontWeight: 600, pointerEvents: 'none',
+                  }}>$</span>
+                  <input
+                    className="input"
+                    style={{ paddingLeft: 30 }}
+                    placeholder="12,000"
+                    type="number"
+                    min="0"
+                    value={form.annualContribution}
+                    onChange={e => setForm(f => ({ ...f, annualContribution: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              {/* Annual Income (optional) */}
+              <div>
+                <label style={{
+                  display: 'block', fontSize: '.78rem', fontWeight: 600,
+                  color: 'var(--text-muted)', textTransform: 'uppercase',
+                  letterSpacing: '.05em', marginBottom: 8,
+                }}>
+                  Gross Annual Income{' '}
+                  <span style={{ color: 'var(--text-light)', textTransform: 'none', fontWeight: 400 }}>(optional)</span>
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <span style={{
+                    position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)',
+                    color: 'var(--text-light)', fontSize: '.92rem', fontWeight: 600, pointerEvents: 'none',
+                  }}>$</span>
+                  <input
+                    className="input"
+                    style={{ paddingLeft: 30 }}
+                    placeholder="85,000"
+                    type="number"
+                    min="0"
+                    value={form.annualIncome}
+                    onChange={e => setForm(f => ({ ...f, annualIncome: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              {/* Monthly Expenses (optional) */}
+              <div>
+                <label style={{
+                  display: 'block', fontSize: '.78rem', fontWeight: 600,
+                  color: 'var(--text-muted)', textTransform: 'uppercase',
+                  letterSpacing: '.05em', marginBottom: 8,
+                }}>
+                  Monthly Expenses{' '}
+                  <span style={{ color: 'var(--text-light)', textTransform: 'none', fontWeight: 400 }}>(optional)</span>
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <span style={{
+                    position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)',
+                    color: 'var(--text-light)', fontSize: '.92rem', fontWeight: 600, pointerEvents: 'none',
+                  }}>$</span>
+                  <input
+                    className="input"
+                    style={{ paddingLeft: 30 }}
+                    placeholder="5,200"
+                    type="number"
+                    min="0"
+                    value={form.monthlyExpenses}
+                    onChange={e => setForm(f => ({ ...f, monthlyExpenses: e.target.value }))}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════════════════════
+         STEP 3 – Portfolio
+         ═══════════════════════════════════════════════════════════════ */}
+      {step === 3 && (
+        <div className="fade-up">
+          <div style={{ textAlign: 'center', marginBottom: 32 }}>
+            <h2 style={{
+              fontSize: '1.5rem', fontWeight: 800, letterSpacing: '-.02em',
+              color: 'var(--text)', marginBottom: 6,
+            }}>
+              Your Holdings
+            </h2>
+            <p style={{ fontSize: '.88rem', color: 'var(--text-muted)' }}>
+              Add your current positions. Use data from your brokerage.
+            </p>
+          </div>
+
+          {/* Holdings Table */}
+          <div className="card" style={{ padding: '28px 24px 24px' }}>
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              marginBottom: 16,
+            }}>
+              <span style={{
+                fontSize: '.82rem', fontWeight: 700, color: 'var(--text-muted)',
+                textTransform: 'uppercase', letterSpacing: '.05em',
+              }}>
+                Holdings
+              </span>
+              <span style={{ fontSize: '.78rem', color: 'var(--text-light)' }}>
+                {form.holdings.length} position{form.holdings.length !== 1 ? 's' : ''}
+              </span>
+            </div>
+
+            {/* Column Headers */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: '2fr 1fr 1.2fr 1.2fr 1.5fr 1.5fr auto',
+              gap: 8, padding: '0 2px', marginBottom: 8,
+            }}>
+              {['Symbol', 'Shares', 'Current $', 'Cost Basis $', 'Asset Class', 'Sector', ''].map((h, i) => (
+                <span key={i} style={{
+                  fontSize: '.7rem', fontWeight: 700, color: 'var(--text-light)',
+                  textTransform: 'uppercase', letterSpacing: '.06em',
+                }}>
+                  {h}
+                </span>
+              ))}
+            </div>
+
+            {/* Rows */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {form.holdings.map(h => (
+                <div
+                  key={h.id}
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: '2fr 1fr 1.2fr 1.2fr 1.5fr 1.5fr auto',
+                    gap: 8, alignItems: 'center',
+                  }}
+                >
+                  <input
+                    className="input"
+                    placeholder="TD.TO"
+                    value={h.symbol}
+                    onChange={e => updateHolding(h.id, 'symbol', e.target.value)}
+                    style={{ textTransform: 'uppercase' }}
+                  />
+                  <input
+                    className="input"
+                    placeholder="100"
+                    type="number"
+                    min="0"
+                    value={h.shares}
+                    onChange={e => updateHolding(h.id, 'shares', e.target.value)}
+                  />
+                  <input
+                    className="input"
+                    placeholder="83.50"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={h.currentPrice}
+                    onChange={e => updateHolding(h.id, 'currentPrice', e.target.value)}
+                  />
+                  <input
+                    className="input"
+                    placeholder="79.00"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={h.costBasis}
+                    onChange={e => updateHolding(h.id, 'costBasis', e.target.value)}
+                  />
+                  <select
+                    className="input"
+                    value={h.assetClass}
+                    onChange={e => updateHolding(h.id, 'assetClass', e.target.value as AssetClass)}
+                  >
+                    <option value="equity">Equity</option>
+                    <option value="fixed_income">Fixed Income</option>
+                    <option value="cash">Cash</option>
+                    <option value="alternative">Alternative</option>
+                  </select>
+                  <select
+                    className="input"
+                    value={h.sector}
+                    onChange={e => updateHolding(h.id, 'sector', e.target.value)}
+                  >
+                    {SECTORS.map(s => <option key={s}>{s}</option>)}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => removeHolding(h.id)}
+                    disabled={form.holdings.length === 1}
+                    style={{
+                      background: 'none', border: 'none', cursor: 'pointer',
+                      color: 'var(--text-light)', fontSize: '1.1rem', lineHeight: 1,
+                      padding: '0 4px', transition: 'color .2s',
+                      opacity: form.holdings.length === 1 ? 0.2 : 1,
+                    }}
+                    onMouseEnter={e => { if (form.holdings.length > 1) (e.target as HTMLElement).style.color = 'var(--red)'; }}
+                    onMouseLeave={e => { (e.target as HTMLElement).style.color = 'var(--text-light)'; }}
+                    aria-label="Remove holding"
+                  >
+                    &times;
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <button
+              type="button"
+              onClick={addHolding}
+              style={{
+                marginTop: 14, background: 'none', border: 'none', cursor: 'pointer',
+                fontSize: '.82rem', fontWeight: 600, color: 'var(--accent)',
+                fontFamily: 'var(--font)',
+              }}
+            >
+              + Add holding
+            </button>
+          </div>
+
+          {/* Tax Room & Target Allocation */}
+          <div style={{
+            display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginTop: 20,
+          }}>
+            {/* Tax Room */}
+            <div className="card" style={{ padding: '24px 24px 28px' }}>
+              <span style={{
+                display: 'block', fontSize: '.78rem', fontWeight: 700,
+                color: 'var(--text-muted)', textTransform: 'uppercase',
+                letterSpacing: '.05em', marginBottom: 16,
+              }}>
+                Registered Account Room
+              </span>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div>
+                  <label style={{
+                    display: 'block', fontSize: '.78rem', fontWeight: 600,
+                    color: 'var(--text-muted)', marginBottom: 6,
+                  }}>
+                    Remaining TFSA Room
+                  </label>
+                  <div style={{ position: 'relative' }}>
+                    <span style={{
+                      position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)',
+                      color: 'var(--text-light)', fontSize: '.92rem', fontWeight: 600, pointerEvents: 'none',
+                    }}>$</span>
+                    <input
+                      className="input"
+                      style={{ paddingLeft: 30 }}
+                      placeholder="18,500"
+                      type="number"
+                      min="0"
+                      value={form.tfsaRoom}
+                      onChange={e => setForm(f => ({ ...f, tfsaRoom: e.target.value }))}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label style={{
+                    display: 'block', fontSize: '.78rem', fontWeight: 600,
+                    color: 'var(--text-muted)', marginBottom: 6,
+                  }}>
+                    Remaining RRSP Room
+                  </label>
+                  <div style={{ position: 'relative' }}>
+                    <span style={{
+                      position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)',
+                      color: 'var(--text-light)', fontSize: '.92rem', fontWeight: 600, pointerEvents: 'none',
+                    }}>$</span>
+                    <input
+                      className="input"
+                      style={{ paddingLeft: 30 }}
+                      placeholder="32,000"
+                      type="number"
+                      min="0"
+                      value={form.rrspRoom}
+                      onChange={e => setForm(f => ({ ...f, rrspRoom: e.target.value }))}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Target Allocation */}
+            <div className="card" style={{ padding: '24px 24px 28px' }}>
+              <span style={{
+                display: 'block', fontSize: '.78rem', fontWeight: 700,
+                color: 'var(--text-muted)', textTransform: 'uppercase',
+                letterSpacing: '.05em', marginBottom: 16,
+              }}>
+                Target Allocation
+              </span>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div>
+                  <label style={{
+                    display: 'block', fontSize: '.78rem', fontWeight: 600,
+                    color: 'var(--text-muted)', marginBottom: 6,
+                  }}>
+                    Equity %
+                  </label>
+                  <input
+                    className="input"
+                    placeholder="70"
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={form.targetEquityPct}
+                    onChange={e => setForm(f => ({ ...f, targetEquityPct: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label style={{
+                    display: 'block', fontSize: '.78rem', fontWeight: 600,
+                    color: 'var(--text-muted)', marginBottom: 6,
+                  }}>
+                    Fixed Income %
+                  </label>
+                  <input
+                    className="input"
+                    placeholder="25"
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={form.targetFixedIncomePct}
+                    onChange={e => setForm(f => ({ ...f, targetFixedIncomePct: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              <div style={{
+                marginTop: 14, padding: '10px 14px',
+                background: 'var(--surface)', border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-sm)', fontSize: '.78rem', color: 'var(--text-muted)',
+              }}>
+                Cash target: <strong style={{ color: 'var(--text)' }}>{cashPctCalc}%</strong>
+                <span style={{ color: 'var(--text-light)' }}> (100% &minus; equity &minus; fixed income)</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════════════════════
+         STEP 4 – Goal
+         ═══════════════════════════════════════════════════════════════ */}
+      {step === 4 && (
+        <div className="fade-up">
+          <div style={{ textAlign: 'center', marginBottom: 32 }}>
+            <h2 style={{
+              fontSize: '1.5rem', fontWeight: 800, letterSpacing: '-.02em',
+              color: 'var(--text)', marginBottom: 6,
+            }}>
+              Your Investment Goal
+            </h2>
+            <p style={{ fontSize: '.88rem', color: 'var(--text-muted)' }}>
+              What are you working towards?
+            </p>
+          </div>
+
+          {/* Goal Purpose Selector */}
+          <div className="card" style={{ padding: '28px 28px 32px', marginBottom: 20 }}>
+            <label style={{
+              display: 'block', fontSize: '.78rem', fontWeight: 700,
+              color: 'var(--text-muted)', textTransform: 'uppercase',
+              letterSpacing: '.05em', marginBottom: 16,
+            }}>
+              Goal Purpose
+            </label>
+            <div className="card-selector" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
+              {GOAL_PURPOSE_OPTIONS.map(opt => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  className={`sel-card${form.goalPurpose === opt.value ? ' selected' : ''}`}
+                  onClick={() => setForm(f => ({ ...f, goalPurpose: opt.value }))}
+                >
+                  <span className="sel-icon">{opt.icon}</span>
+                  <span className="sel-label">{opt.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Goal Details */}
+          <div className="card" style={{ padding: '28px 28px 32px' }}>
+            <div style={{
+              display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24,
+            }}>
+              <div>
+                <label style={{
+                  display: 'block', fontSize: '.78rem', fontWeight: 600,
+                  color: 'var(--text-muted)', textTransform: 'uppercase',
+                  letterSpacing: '.05em', marginBottom: 8,
+                }}>
+                  Target Amount
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <span style={{
+                    position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)',
+                    color: 'var(--text-light)', fontSize: '.92rem', fontWeight: 600, pointerEvents: 'none',
+                  }}>$</span>
+                  <input
+                    className="input"
+                    style={{ paddingLeft: 30 }}
+                    placeholder="800,000"
+                    type="number"
+                    min="1"
+                    value={form.goalAmount}
+                    onChange={e => setForm(f => ({ ...f, goalAmount: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label style={{
+                  display: 'block', fontSize: '.78rem', fontWeight: 600,
+                  color: 'var(--text-muted)', textTransform: 'uppercase',
+                  letterSpacing: '.05em', marginBottom: 8,
+                }}>
+                  Years to Goal
+                </label>
+                <input
+                  className="input"
+                  placeholder="18"
+                  type="number"
+                  min="1"
+                  max="50"
+                  value={form.goalYears}
+                  onChange={e => setForm(f => ({ ...f, goalYears: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            <div style={{ marginTop: 24 }}>
+              <label style={{
+                display: 'block', fontSize: '.78rem', fontWeight: 600,
+                color: 'var(--text-muted)', textTransform: 'uppercase',
+                letterSpacing: '.05em', marginBottom: 8,
+              }}>
+                Description <span style={{ color: 'var(--text-light)', textTransform: 'none', fontWeight: 400 }}>(optional)</span>
+              </label>
+              <input
+                className="input"
+                placeholder="e.g. Financial independence fund"
+                value={form.goalDescription}
+                onChange={e => setForm(f => ({ ...f, goalDescription: e.target.value }))}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════════════════════
+         Navigation Buttons
+         ═══════════════════════════════════════════════════════════════ */}
+      <div style={{
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        marginTop: 40, gap: 16,
+      }}>
+        {step > 0 ? (
+          <button
+            type="button"
+            className="btn-ghost"
+            onClick={goBack}
+          >
+            &larr; Back
+          </button>
+        ) : (
+          <div />
+        )}
+
+        <button
+          type="button"
+          className="btn-primary"
+          onClick={goNext}
+          style={{
+            padding: isLastStep ? '12px 36px' : '10px 28px',
+            fontSize: isLastStep ? '.95rem' : '.88rem',
+          }}
+        >
+          {isLastStep ? 'Start Analysis  \u2192' : 'Continue  \u2192'}
+        </button>
+      </div>
+    </div>
   );
 }

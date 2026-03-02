@@ -62,18 +62,36 @@ export default function ChatPanel({ analysis, portfolio }: Props) {
   }
 
   return (
-    <div className="card fade-up">
+    <div className="card reveal">
       {/* Header */}
-      <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-3">
+      <div
+        className="px-6 py-4 flex items-center gap-3"
+        style={{
+          borderBottom: '1px solid var(--border)',
+          background: 'var(--surface)',
+          borderRadius: 'var(--radius) var(--radius) 0 0',
+          backdropFilter: 'blur(12px)',
+        }}
+      >
         <div
           className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold shrink-0"
-          style={{ backgroundColor: '#C8973A', color: '#0B1A40' }}
+          style={{ backgroundColor: 'var(--accent)', color: 'var(--bg)' }}
         >
           NE
         </div>
         <div>
-          <p className="font-semibold text-gray-900 text-sm">Ask about your portfolio</p>
-          <p className="text-xs text-gray-400">Powered by your analysis — no invented numbers</p>
+          <p
+            className="font-semibold text-sm"
+            style={{ color: 'var(--text)' }}
+          >
+            Ask about your portfolio
+          </p>
+          <p
+            className="text-xs"
+            style={{ color: 'var(--text-muted)' }}
+          >
+            Powered by your analysis — no invented numbers
+          </p>
         </div>
       </div>
 
@@ -82,14 +100,32 @@ export default function ChatPanel({ analysis, portfolio }: Props) {
 
         {messages.length === 0 && (
           <div className="space-y-3">
-            <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">Suggested questions</p>
+            <p
+              className="text-xs font-medium uppercase tracking-wide"
+              style={{ color: 'var(--text-muted)' }}
+            >
+              Suggested questions
+            </p>
             <div className="flex flex-wrap gap-2">
               {SUGGESTED.map(q => (
                 <button
                   key={q}
                   onClick={() => send(q)}
                   disabled={loading}
-                  className="text-xs bg-gray-50 hover:bg-blue-50 border border-gray-200 hover:border-blue-200 text-gray-600 hover:text-blue-700 rounded-full px-3 py-1.5 transition-colors disabled:opacity-50"
+                  className="text-xs rounded-full px-3 py-1.5 transition-colors disabled:opacity-50"
+                  style={{
+                    background: 'transparent',
+                    border: '1px solid var(--border)',
+                    color: 'var(--text-muted)',
+                  }}
+                  onMouseEnter={e => {
+                    (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--accent)';
+                    (e.currentTarget as HTMLButtonElement).style.color = 'var(--text)';
+                  }}
+                  onMouseLeave={e => {
+                    (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border)';
+                    (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-muted)';
+                  }}
                 >
                   {q}
                 </button>
@@ -101,12 +137,20 @@ export default function ChatPanel({ analysis, portfolio }: Props) {
         {messages.map((msg, i) => (
           <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             <div
-              className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+              className={`max-w-[85%] px-4 py-3 text-sm leading-relaxed ${
                 msg.role === 'user'
-                  ? 'text-white rounded-br-sm'
-                  : 'bg-gray-50 text-gray-800 rounded-bl-sm border border-gray-100'
+                  ? 'rounded-2xl rounded-br-sm'
+                  : 'rounded-2xl rounded-bl-sm'
               }`}
-              style={msg.role === 'user' ? { backgroundColor: '#132558' } : {}}
+              style={
+                msg.role === 'user'
+                  ? { backgroundColor: 'var(--accent)', color: '#ffffff' }
+                  : {
+                      backgroundColor: 'var(--surface)',
+                      border: '1px solid var(--border)',
+                      color: 'var(--text)',
+                    }
+              }
             >
               {msg.content.split('\n').map((line, j) => (
                 <span key={j}>{line}{j < msg.content.split('\n').length - 1 && <br />}</span>
@@ -117,39 +161,48 @@ export default function ChatPanel({ analysis, portfolio }: Props) {
 
         {loading && (
           <div className="flex justify-start">
-            <div className="bg-gray-50 border border-gray-100 rounded-2xl rounded-bl-sm px-4 py-3 flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 bg-gray-400 rounded-full pulse-dot" />
-              <span className="w-1.5 h-1.5 bg-gray-400 rounded-full pulse-dot-2" />
-              <span className="w-1.5 h-1.5 bg-gray-400 rounded-full pulse-dot-3" />
+            <div
+              className="rounded-2xl rounded-bl-sm px-4 py-3 flex items-center gap-1.5"
+              style={{
+                backgroundColor: 'var(--surface)',
+                border: '1px solid var(--border)',
+              }}
+            >
+              <span className="w-1.5 h-1.5 rounded-full pulse-dot" style={{ backgroundColor: 'var(--text-muted)' }} />
+              <span className="w-1.5 h-1.5 rounded-full pulse-dot-2" style={{ backgroundColor: 'var(--text-muted)' }} />
+              <span className="w-1.5 h-1.5 rounded-full pulse-dot-3" style={{ backgroundColor: 'var(--text-muted)' }} />
             </div>
           </div>
         )}
 
         {error && (
-          <p className="text-xs text-red-500 text-center">{error}</p>
+          <p className="text-xs text-center" style={{ color: 'var(--red)' }}>{error}</p>
         )}
 
         <div ref={bottomRef} />
       </div>
 
       {/* Input */}
-      <div className="px-6 py-4 border-t border-gray-100">
+      <div
+        className="px-6 py-4"
+        style={{ borderTop: '1px solid var(--border)' }}
+      >
         <div className="flex gap-2 items-end">
           <textarea
             rows={1}
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={handleKey}
-            placeholder="Ask anything about your portfolio…"
+            placeholder="Ask anything about your portfolio..."
             disabled={loading}
-            className="flex-1 resize-none rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white disabled:opacity-50"
+            className="input flex-1 resize-none disabled:opacity-50"
             style={{ minHeight: '38px', maxHeight: '120px' }}
           />
           <button
             onClick={() => send(input)}
             disabled={!input.trim() || loading}
             className="shrink-0 w-9 h-9 rounded-xl flex items-center justify-center text-white transition-opacity disabled:opacity-40"
-            style={{ backgroundColor: '#132558' }}
+            style={{ backgroundColor: 'var(--accent)' }}
             aria-label="Send"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -157,7 +210,10 @@ export default function ChatPanel({ analysis, portfolio }: Props) {
             </svg>
           </button>
         </div>
-        <p className="text-xs text-gray-400 mt-2">
+        <p
+          className="text-xs mt-2"
+          style={{ color: 'var(--text-muted)' }}
+        >
           Press Enter to send · Shift+Enter for new line · Not financial advice
         </p>
       </div>
