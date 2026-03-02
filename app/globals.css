@@ -1,0 +1,52 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  --navy-900: #0B1A40;
+  --navy-800: #132558;
+  --gold-500:  #C8973A;
+}
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background-color: #F0F4FA;
+  color: #1F2937;
+}
+
+/* Smooth scroll */
+html { scroll-behavior: smooth; }
+
+/* Card shadow */
+.card {
+  @apply bg-white rounded-2xl shadow-sm border border-gray-100;
+}
+
+/* Score bar fill animation */
+@keyframes barFill {
+  from { width: 0%; }
+  to   { width: var(--bar-w); }
+}
+.score-bar-fill {
+  animation: barFill 0.8s ease-out forwards;
+}
+
+/* Fade in */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0);    }
+}
+.fade-up {
+  animation: fadeUp 0.5s ease-out forwards;
+}
+
+/* Pulse dot */
+@keyframes pulseDot {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.3; }
+}
+.pulse-dot { animation: pulseDot 1.4s ease-in-out infinite; }
+.pulse-dot-2 { animation: pulseDot 1.4s ease-in-out infinite 0.25s; }
+.pulse-dot-3 { animation: pulseDot 1.4s ease-in-out infinite 0.5s; }
