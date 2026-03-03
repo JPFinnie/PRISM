@@ -9,7 +9,7 @@ function buildMockInsight(topAction: ScoredAction, metrics: PortfolioMetrics): A
 
   return {
     headline:    `${topAction.title}: Your Highest-Leverage Action Right Now`,
-    explanation: `${topAction.rationale}${benefit}\n\nThe Nexus Edge scoring engine evaluated every actionable move across your portfolio and ranked this highest based on expected financial impact and time-sensitivity. Acting on this recommendation moves you meaningfully closer to your investment goal without requiring major changes to your strategy.\n\nReview the scenario projections below to see how this action affects your goal probability across market conditions.`,
+    explanation: `${topAction.rationale}${benefit}\n\nThe scoring engine evaluated every actionable move across your portfolio and ranked this highest based on expected financial impact and time-sensitivity. Acting on this recommendation moves you meaningfully closer to your investment goal without requiring major changes to your strategy.\n\nReview the scenario projections below to see how this action affects your goal probability across market conditions.`,
     keyNumbers:  Object.entries(topAction.actionDetails)
       .slice(0, 3)
       .map(([k, v]) => `${k.replace(/([A-Z])/g, ' $1').trim()}: ${typeof v === 'number' && v > 999 ? '$' + Number(v).toLocaleString() : v}`),
@@ -34,7 +34,7 @@ export async function generateInsight(
   const confidenceMin = Math.max(52, topAction.score - 15);
   const confidenceMax = Math.min(91, topAction.score + 5);
 
-  const systemPrompt = `You are a financial analysis assistant for Nexus Edge, a self-directed investing tool for CIBC Nexus Edge users. You receive pre-calculated outputs from a deterministic financial engine. Your only job is to explain the top recommendation in clear, professional language.
+  const systemPrompt = `You are a financial analysis assistant for Prism, a self-directed investing tool for Canadian investors. You receive pre-calculated outputs from a deterministic financial engine. Your only job is to explain the top recommendation in clear, professional language.
 
 STRICT RULES:
 - Do NOT invent numbers. Use ONLY the data provided.

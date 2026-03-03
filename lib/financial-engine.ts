@@ -326,3 +326,41 @@ export function projectScenarios(
     },
   ];
 }
+
+// ─── Project a custom scenario ──────────────────────────────────────────────
+export function projectCustomScenario(
+  portfolio: PortfolioInput,
+  metrics:   PortfolioMetrics,
+  params:    { annualReturn: number; year1Shock: number; label: string },
+): ScenarioProjection {
+  const years  = portfolio.goal.yearsToGoal;
+  const target = portfolio.goal.targetAmount;
+  const pv     = metrics.totalValue;
+  const pmt    = portfolio.annualContribution;
+
+  const values: number[] = [Math.round(pv)];
+  let v = pv;
+  for (let y = 1; y <= years; y++) {
+    const r = y === 1 ? params.year1Shock : params.annualReturn;
+    v = v * (1 + r) + pmt;
+    values.push(Math.round(Math.max(0, v)));
+  }
+
+  const ratio = values[years] / target;
+  let prob: number;
+  if (ratio >= 1.5) prob = 97;
+  else if (ratio >= 1.2) prob = 90 + (ratio - 1.2) * 23;
+  else if (ratio >= 1.0) prob = 72 + (ratio - 1.0) * 90;
+  else if (ratio >= 0.8) prob = 45 + (ratio - 0.8) * 135;
+  else if (ratio >= 0.5) prob = 15 + (ratio - 0.5) * 100;
+  else prob = Math.max(3, ratio * 30);
+
+  return {
+    name:             'custom',
+    label:            params.label,
+    annualReturn:     params.annualReturn,
+    finalValue:       values[years],
+    goalProbability:  Math.round(Math.min(97, Math.max(3, prob))),
+    yearByYearValues: values,
+  };
+}

@@ -91,7 +91,7 @@ export interface ScoredAction {
 }
 
 export interface ScenarioProjection {
-  name: 'base' | 'recession' | 'bull';
+  name: 'base' | 'recession' | 'bull' | 'custom';
   label: string;
   annualReturn: number;
   finalValue: number;

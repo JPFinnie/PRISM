@@ -7,7 +7,9 @@ import RecommendationCard from '@/components/RecommendationCard';
 import ScenarioChart from '@/components/ScenarioChart';
 import LoadingState from '@/components/LoadingState';
 import ChatPanel from '@/components/ChatPanel';
-import { PortfolioInput, AnalysisResult } from '@/lib/types';
+import { PortfolioInput, AnalysisResult, ScenarioProjection } from '@/lib/types';
+import { projectCustomScenario, computeMetrics } from '@/lib/financial-engine';
+import { generatePDF } from '@/lib/pdf-export';
 
 /* ═══════════════════════════════════════════════════
    Helpers
@@ -21,6 +23,72 @@ function fmt(n: number): string {
 
 function pct(n: number): string {
   return `${(n * 100).toFixed(1)}%`;
+}
+
+/* CSV export helper */
+function exportCSV(result: AnalysisResult, portfolio: PortfolioInput | null) {
+  const rows: string[][] = [];
+  const esc = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
+
+  /* Section: Summary */
+  rows.push(['PORTFOLIO SUMMARY']);
+  rows.push(['Total Value', `$${Math.round(result.metrics.totalValue).toLocaleString()}`]);
+  rows.push(['Unrealized G/L', `$${Math.round(result.metrics.unrealizedGainLoss).toLocaleString()}`]);
+  rows.push(['Equity %', `${result.metrics.currentAllocation.equityPct.toFixed(1)}%`]);
+  rows.push(['Fixed Income %', `${result.metrics.currentAllocation.fixedIncomePct.toFixed(1)}%`]);
+  rows.push(['Cash %', `${result.metrics.currentAllocation.cashPct.toFixed(1)}%`]);
+  if (result.metrics.savingsRate !== null) rows.push(['Savings Rate', `${(result.metrics.savingsRate * 100).toFixed(1)}%`]);
+  if (result.metrics.liquidityRatio !== null) rows.push(['Liquidity Ratio', `${result.metrics.liquidityRatio.toFixed(1)} months`]);
+  rows.push([]);
+
+  /* Section: Scored Actions */
+  rows.push(['SCORED ACTIONS']);
+  rows.push(['Rank', 'Action', 'Score', 'Urgency', 'Est. Annual Benefit']);
+  result.allActions.forEach((a, i) => {
+    rows.push([String(i + 1), a.title, String(a.score), a.urgency, `$${a.estimatedAnnualBenefit.toLocaleString()}`]);
+  });
+  rows.push([]);
+
+  /* Section: Top Recommendation */
+  rows.push(['TOP RECOMMENDATION']);
+  rows.push(['Action', result.topAction.title]);
+  rows.push(['Score', String(result.topAction.score)]);
+  rows.push(['Rationale', result.topAction.rationale]);
+  rows.push(['AI Headline', result.aiInsight.headline]);
+  rows.push([]);
+
+  /* Section: Scenario Projections */
+  rows.push(['SCENARIO PROJECTIONS']);
+  const years = result.scenarios[0]?.yearByYearValues.length ?? 0;
+  const header = ['Year', ...result.scenarios.map(s => s.label)];
+  rows.push(header);
+  for (let y = 0; y < years; y++) {
+    rows.push([String(y), ...result.scenarios.map(s => `$${s.yearByYearValues[y]?.toLocaleString() ?? '0'}`)]);
+  }
+  rows.push([]);
+  rows.push(['Scenario', 'Final Value', 'Goal Probability']);
+  result.scenarios.forEach(s => {
+    rows.push([s.label, `$${Math.round(s.finalValue).toLocaleString()}`, `${s.goalProbability}%`]);
+  });
+
+  /* Section: Holdings */
+  if (portfolio) {
+    rows.push([]);
+    rows.push(['HOLDINGS']);
+    rows.push(['Symbol', 'Shares', 'Current Price', 'Cost Basis', 'Asset Class', 'Sector']);
+    portfolio.holdings.forEach(h => {
+      rows.push([h.symbol, String(h.shares), `$${h.currentPrice}`, `$${h.costBasis}`, h.assetClass, h.sector]);
+    });
+  }
+
+  const csvContent = rows.map(row => row.map(esc).join(',')).join('\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `prism-analysis-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 /* ═══════════════════════════════════════════════════
@@ -54,14 +122,14 @@ function Header({
             className="w-9 h-9 rounded-lg flex items-center justify-center font-bold text-sm"
             style={{ background: 'var(--accent)', color: '#fff' }}
           >
-            NE
+            P
           </div>
           <div>
             <p className="font-bold text-base leading-tight" style={{ color: 'var(--text)' }}>
-              Nexus Edge
+              Prism
             </p>
             <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-              for CIBC Investor&apos;s Edge users
+              Portfolio Intelligence
             </p>
           </div>
         </div>
@@ -452,12 +520,16 @@ export default function HomePage() {
   const [error, setError] = useState<string | null>(null);
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [toast, setToast] = useState<string | null>(null);
+  const [customOpen, setCustomOpen] = useState(false);
+  const [customReturn, setCustomReturn] = useState(8);
+  const [customShock, setCustomShock] = useState(-15);
+  const [customScenario, setCustomScenario] = useState<ScenarioProjection | null>(null);
 
   const actionCompRef = useRef<HTMLDivElement>(null);
 
   /* ── Theme persistence ── */
   useEffect(() => {
-    const saved = localStorage.getItem('nexus-theme') as 'dark' | 'light' | null;
+    const saved = localStorage.getItem('prism-theme') as 'dark' | 'light' | null;
     if (saved === 'dark' || saved === 'light') {
       setTheme(saved);
       document.documentElement.className = saved;
@@ -470,7 +542,7 @@ export default function HomePage() {
     const next = theme === 'dark' ? 'light' : 'dark';
     setTheme(next);
     document.documentElement.className = next;
-    localStorage.setItem('nexus-theme', next);
+    localStorage.setItem('prism-theme', next);
   }
 
   /* ── Toast auto-clear ── */
@@ -636,6 +708,27 @@ export default function HomePage() {
               >
                 Defer Decision
               </button>
+              <div className="flex items-center gap-2" style={{ marginLeft: 'auto' }}>
+                <button
+                  className="btn-outline"
+                  onClick={() => {
+                    exportCSV(result, portfolio);
+                    setToast('Analysis exported as CSV.');
+                  }}
+                >
+                  Export CSV
+                </button>
+                <button
+                  className="btn-primary"
+                  onClick={() => {
+                    generatePDF(result, portfolio);
+                    setToast('PDF report downloaded.');
+                  }}
+                  style={{ padding: '8px 18px', fontSize: '.82rem' }}
+                >
+                  Export PDF
+                </button>
+              </div>
             </div>
 
             {/* 4. At a Glance */}
@@ -646,13 +739,121 @@ export default function HomePage() {
             {/* 5. Scenario Chart */}
             <div className="reveal">
               <ScenarioChart
-                scenarios={result.scenarios}
+                scenarios={customScenario ? [...result.scenarios, customScenario] : result.scenarios}
                 goalAmount={portfolio?.goal.targetAmount ?? 0}
                 yearsToGoal={
                   portfolio?.goal.yearsToGoal ??
                   (result.scenarios[0]?.yearByYearValues.length - 1)
                 }
               />
+            </div>
+
+            {/* 5b. Custom Scenario Builder */}
+            <div className="reveal">
+              <div className="detail-toggle">
+                <p className="section-label" style={{ margin: 0 }}>Custom Scenario</p>
+                <button
+                  onClick={() => setCustomOpen(!customOpen)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--accent)',
+                    fontSize: '.85rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    fontFamily: 'var(--font)',
+                  }}
+                >
+                  {customOpen ? 'Hide' : 'Build your own'}
+                </button>
+              </div>
+              <div className={`detail-content ${customOpen ? 'expanded' : 'collapsed'}`}>
+                <div className="card" style={{ padding: '24px 28px' }}>
+                  <p className="section-sub" style={{ marginBottom: 20 }}>
+                    Define custom return and year-1 shock parameters to model your own scenario.
+                  </p>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+                    <div>
+                      <label style={{
+                        display: 'block', fontSize: '.78rem', fontWeight: 600,
+                        color: 'var(--text-muted)', textTransform: 'uppercase',
+                        letterSpacing: '.05em', marginBottom: 8,
+                      }}>
+                        Annual Return: {customReturn}%
+                      </label>
+                      <input
+                        type="range"
+                        min="-10"
+                        max="25"
+                        step="0.5"
+                        value={customReturn}
+                        onChange={e => setCustomReturn(parseFloat(e.target.value))}
+                        style={{ width: '100%', accentColor: 'var(--accent)' }}
+                      />
+                      <div className="flex justify-between" style={{ fontSize: '.72rem', color: 'var(--text-light)', marginTop: 4 }}>
+                        <span>-10%</span><span>25%</span>
+                      </div>
+                    </div>
+                    <div>
+                      <label style={{
+                        display: 'block', fontSize: '.78rem', fontWeight: 600,
+                        color: 'var(--text-muted)', textTransform: 'uppercase',
+                        letterSpacing: '.05em', marginBottom: 8,
+                      }}>
+                        Year-1 Shock: {customShock}%
+                      </label>
+                      <input
+                        type="range"
+                        min="-60"
+                        max="40"
+                        step="1"
+                        value={customShock}
+                        onChange={e => setCustomShock(parseFloat(e.target.value))}
+                        style={{ width: '100%', accentColor: 'var(--accent)' }}
+                      />
+                      <div className="flex justify-between" style={{ fontSize: '.72rem', color: 'var(--text-light)', marginTop: 4 }}>
+                        <span>-60%</span><span>+40%</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 20 }}>
+                    <button
+                      className="btn-primary"
+                      onClick={() => {
+                        if (portfolio && result) {
+                          const metrics = computeMetrics(portfolio);
+                          const cs = projectCustomScenario(portfolio, metrics, {
+                            annualReturn: customReturn / 100,
+                            year1Shock: customShock / 100,
+                            label: `Custom (${customReturn}% / ${customShock}% yr1)`,
+                          });
+                          setCustomScenario(cs);
+                        }
+                      }}
+                      style={{ padding: '8px 20px', fontSize: '.85rem' }}
+                    >
+                      Run Scenario
+                    </button>
+                    {customScenario && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 16, fontSize: '.85rem' }}>
+                        <span style={{ color: 'var(--text-muted)' }}>
+                          Final: <strong style={{ color: '#a855f7' }}>{fmt(customScenario.finalValue)}</strong>
+                        </span>
+                        <span style={{ color: 'var(--text-muted)' }}>
+                          Goal: <strong style={{ color: '#a855f7' }}>{customScenario.goalProbability}%</strong>
+                        </span>
+                        <button
+                          className="btn-ghost"
+                          onClick={() => setCustomScenario(null)}
+                          style={{ fontSize: '.82rem', padding: '4px 12px' }}
+                        >
+                          Clear
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* 6. Action Comparison */}
@@ -676,7 +877,7 @@ export default function HomePage() {
             <div className="reveal">
               <div className="guardrails">
                 <p style={{ marginBottom: 10 }}>
-                  Nexus Edge provides analysis for informational purposes only. This is not
+                  Prism provides analysis for informational purposes only. This is not
                   financial advice. All projections are estimates based on historical data and
                   assumptions that may not reflect future performance. Always consult a
                   qualified financial advisor before making investment decisions.
