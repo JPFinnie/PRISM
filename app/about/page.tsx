@@ -93,10 +93,10 @@ function Header() {
               color: '#fff',
             }}
           >
-            NE
+            P
           </div>
           <span style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text)' }}>
-            Nexus Edge
+            Prism
           </span>
         </div>
 
@@ -186,7 +186,7 @@ const roadmapItems = [
   { title: 'Real-time pricing', desc: 'Market data API integration (Alpha Vantage, etc.)' },
   { title: 'Portfolio persistence', desc: 'Database + auth (Postgres / Supabase)' },
   { title: 'PDF / CSV export', desc: 'Server-side rendering for reports' },
-  { title: 'CIBC account import', desc: 'Open Banking API integration' },
+  { title: 'Brokerage account import', desc: 'Open Banking API integration' },
   { title: 'Custom scenarios', desc: 'User-defined shock parameters' },
   { title: 'Backtesting', desc: 'Historical return data integration' },
 ];
@@ -221,7 +221,7 @@ export default function AboutPage() {
               marginBottom: 14,
             }}
           >
-            How Nexus Edge Works
+            How Prism Works
           </h1>
           <p
             style={{

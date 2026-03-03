@@ -323,7 +323,7 @@ export default function PortfolioForm({ onAnalyze }: Props) {
               fontSize: '2rem', fontWeight: 800, letterSpacing: '-.03em',
               color: 'var(--text)', marginBottom: 8,
             }}>
-              Welcome to Nexus Edge
+              Welcome to Prism
             </h1>
             <p style={{ fontSize: '.95rem', color: 'var(--text-muted)', maxWidth: 440, margin: '0 auto' }}>
               Let&apos;s analyze your portfolio. This takes about 2 minutes.

@@ -18,12 +18,14 @@ const COLORS: Record<string, string> = {
   base:      '#3b82f6',
   recession: '#ef4444',
   bull:      '#10b981',
+  custom:    '#a855f7',
 };
 
 const ICONS: Record<string, string> = {
   base:      '\u2694\uFE0F',
   recession: '\uD83D\uDCC9',
   bull:      '\uD83D\uDCC8',
+  custom:    '\uD83D\uDD2E',
 };
 
 function fmt(n: number): string {
@@ -82,7 +84,7 @@ export default function ScenarioChart({ scenarios, goalAmount, yearsToGoal }: Pr
           className="text-sm"
           style={{ color: 'var(--text-muted)' }}
         >
-          Projected outcomes under three macro conditions
+          Projected outcomes under multiple macro conditions
         </p>
       </div>
 
@@ -96,7 +98,7 @@ export default function ScenarioChart({ scenarios, goalAmount, yearsToGoal }: Pr
             <div className="scenario-sub">
               {fmt(s.finalValue)} projected
               <br />
-              {s.annualReturn > 0 ? '+' : ''}{s.annualReturn}% annual return
+              {s.annualReturn > 0 ? '+' : ''}{(s.annualReturn * 100).toFixed(1)}% annual return
             </div>
           </div>
         ))}
@@ -121,6 +123,10 @@ export default function ScenarioChart({ scenarios, goalAmount, yearsToGoal }: Pr
           <linearGradient id="grad-bull" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="#10b981" stopOpacity="0.15" />
             <stop offset="100%" stopColor="#10b981" stopOpacity="0" />
+          </linearGradient>
+          <linearGradient id="grad-custom" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#a855f7" stopOpacity="0.15" />
+            <stop offset="100%" stopColor="#a855f7" stopOpacity="0" />
           </linearGradient>
         </defs>
 

@@ -26,7 +26,7 @@ function buildSystemPrompt(req: ChatRequest): string {
     ? `\nEmergency fund: ${m.liquidityRatio.toFixed(1)} months of expenses`
     : '';
 
-  return `You are a financial advisor assistant for Nexus Edge, helping a CIBC Investor's Edge user understand their portfolio analysis.
+  return `You are a financial advisor assistant for Prism, helping a self-directed investor understand their portfolio analysis.
 
 PORTFOLIO SNAPSHOT:
 Total value: $${Math.round(m.totalValue).toLocaleString()}

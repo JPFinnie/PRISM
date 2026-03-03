@@ -1,8 +1,6 @@
-# Nexus Edge
+# Prism — Portfolio Intelligence
 
-AI-powered portfolio analysis for CIBC Investor's Edge users. Enter your holdings and Nexus Edge's deterministic scoring engine evaluates every possible action — TFSA optimisation, tax-loss harvesting, rebalancing, cash deployment — and surfaces the single highest-expected-value move. Then ask follow-up questions in plain English.
-
-**Live:** [nexus-edge-tau.vercel.app](https://nexus-edge-tau.vercel.app)
+AI-powered portfolio analysis for Canadian self-directed investors. Enter your holdings and Prism's deterministic scoring engine evaluates every possible action — TFSA optimisation, tax-loss harvesting, rebalancing, cash deployment — and surfaces the single highest-expected-value move. Then ask follow-up questions in plain English.
 
 ---
 
@@ -13,6 +11,7 @@ AI-powered portfolio analysis for CIBC Investor's Edge users. Enter your holding
 3. **Three-scenario projections** — Base, Recession (−20% year 1), and Bull market trajectories across your goal timeline.
 4. **Financial health metrics** — optional income and expenses unlock savings rate and emergency fund coverage alongside portfolio metrics.
 5. **Portfolio chat** — ask follow-up questions after your analysis. "What happens if I increase contributions by $500?" "Why was tax-loss harvesting ranked so low?" The AI answers using your actual numbers as context.
+6. **CSV export** — download your full analysis (metrics, scored actions, scenario projections) as a spreadsheet.
 
 ## Scored actions
 
@@ -36,8 +35,6 @@ AI-powered portfolio analysis for CIBC Investor's Edge users. Enter your holding
 ## Running locally
 
 ```bash
-# Install dependencies
-cd investors-edge
 npm install
 
 # (Optional) Configure AI
@@ -65,9 +62,10 @@ app/
   api/
     analyze/route.ts   ← deterministic engine + AI narrative
     chat/route.ts      ← contextual follow-up Q&A
+  about/page.tsx       ← about page explaining engine + scoring
   page.tsx             ← main UI
 components/
-  PortfolioForm.tsx    ← holdings + goal input form
+  PortfolioForm.tsx    ← 5-step wizard input
   RecommendationCard.tsx
   ScenarioChart.tsx
   ChatPanel.tsx        ← portfolio chat UI
@@ -80,7 +78,7 @@ lib/
 
 ## Inspired by
 
-[WealthSimple Pulse](https://github.com/Chimppppy/WealthSimple-AI-Submission) — adapted and extended for CIBC Investor's Edge with Canadian tax-sheltered account optimisation (TFSA/RRSP) and a portfolio chat interface.
+[WealthSimple Pulse](https://github.com/Chimppppy/WealthSimple-AI-Submission) — adapted and extended with Canadian tax-sheltered account optimisation (TFSA/RRSP) and a portfolio chat interface.
 
 ---
 
