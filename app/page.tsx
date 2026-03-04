@@ -915,6 +915,7 @@ export default function HomePage() {
     setLoading(true);
     setError(null);
     setResult(null);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
 
     try {
       const res = await fetch('/api/analyze', {
@@ -925,6 +926,7 @@ export default function HomePage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Analysis failed');
       setResult(data as AnalysisResult);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Unknown error');
     } finally {
