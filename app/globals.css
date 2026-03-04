@@ -269,6 +269,12 @@ select.input {
 .section-label { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--text-muted); margin-bottom: 4px; }
 .section-sub { font-size: .85rem; color: var(--text-light); }
 
+/* ═══ Holdings Table ═══ */
+.holdings-table th:hover { color: var(--accent) !important; }
+
+/* ═══ What-If / Monte Carlo Stats Grid ═══ */
+.wi-grid, .mc-stats-grid { }
+
 /* ═══ Responsive ═══ */
 @media (max-width: 640px) {
   .glance-grid { grid-template-columns: 1fr; }
@@ -277,4 +283,6 @@ select.input {
   .card-selector { grid-template-columns: 1fr 1fr; }
   .action-row { grid-template-columns: 140px 1fr 40px; gap: 8px; }
   .brief-action { font-size: 1.3rem; }
+  .wi-grid { grid-template-columns: 1fr 1fr !important; }
+  .mc-stats-grid { grid-template-columns: 1fr 1fr !important; }
 }

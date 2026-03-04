@@ -179,15 +179,21 @@ const actionRows = [
   { action: 'Rebalance', trigger: 'Allocation drift > 5%', urgency: 'High if drift >15%' },
   { action: 'Tax-Loss Harvest', trigger: 'Position down > 8%', urgency: 'High if savings >$2K' },
   { action: 'Reduce Concentration', trigger: 'Holding > 25% of portfolio', urgency: 'High if >40%' },
+  { action: 'Add to Position', trigger: 'Gain >15%, weight <15%, above-avg return', urgency: 'Low' },
 ];
 
 /* ─── Timeline items ──────────────────────────────────────────────────────── */
 const roadmapItems = [
+  { title: 'PDF / CSV export', desc: 'Client-side PDF and CSV report generation', done: true },
+  { title: 'Custom scenarios', desc: 'User-defined return and shock parameters', done: true },
+  { title: 'Holdings breakdown', desc: 'Sortable per-holding gain/loss and weight table', done: true },
+  { title: 'What-If Explorer', desc: 'Real-time parameter tweaking with delta comparison', done: true },
+  { title: 'Monte Carlo analysis', desc: '500-run fan chart with percentile bands', done: true },
+  { title: 'Rebalancing worksheet', desc: 'Concrete buy/sell trade list for target allocation', done: true },
+  { title: 'Contribution gap calculator', desc: 'Monthly shortfall/surplus to reach goal', done: true },
   { title: 'Real-time pricing', desc: 'Market data API integration (Alpha Vantage, etc.)' },
   { title: 'Portfolio persistence', desc: 'Database + auth (Postgres / Supabase)' },
-  { title: 'PDF / CSV export', desc: 'Server-side rendering for reports' },
   { title: 'Brokerage account import', desc: 'Open Banking API integration' },
-  { title: 'Custom scenarios', desc: 'User-defined shock parameters' },
   { title: 'Backtesting', desc: 'Historical return data integration' },
 ];
 
@@ -264,7 +270,7 @@ export default function AboutPage() {
               {
                 icon: '\uD83C\uDFAF',
                 title: 'One Clear Recommendation',
-                desc: 'Instead of overwhelming you with options, the engine scores 6 possible actions and surfaces the single highest-value move. This prevents decision paralysis.',
+                desc: 'Instead of overwhelming you with options, the engine scores 7 possible actions and surfaces the single highest-value move. This prevents decision paralysis.',
               },
               {
                 icon: '\uD83C\uDF41',
@@ -317,7 +323,7 @@ export default function AboutPage() {
               {
                 step: 2,
                 fn: 'scoreActions()',
-                desc: 'Evaluates 6 possible actions (Deploy Cash, TFSA Optimize, RRSP Optimize, Rebalance, Tax-Loss Harvest, Reduce Concentration) and scores each 0\u2013100 based on expected financial impact and time-sensitivity.',
+                desc: 'Evaluates 7 possible actions (Deploy Cash, TFSA Optimize, RRSP Optimize, Rebalance, Tax-Loss Harvest, Reduce Concentration, Add to Position) and scores each 0\u2013100 based on expected financial impact and time-sensitivity.',
               },
               {
                 step: 3,
@@ -367,7 +373,7 @@ export default function AboutPage() {
         {/* ── Section 3: Action Scoring ─────────────────────────────────── */}
         <section style={{ marginBottom: 56 }}>
           <SectionLabel>Action Scoring</SectionLabel>
-          <SectionSub>Six possible actions are evaluated every analysis.</SectionSub>
+          <SectionSub>Seven possible actions are evaluated every analysis.</SectionSub>
 
           <div className="card reveal" style={{ marginTop: 20, overflow: 'hidden' }}>
             {/* Table header */}
@@ -541,45 +547,48 @@ export default function AboutPage() {
           <SectionSub>Future development roadmap</SectionSub>
 
           <div style={{ marginTop: 24, paddingLeft: 20 }}>
-            {roadmapItems.map((item, i) => (
-              <div
-                key={item.title}
-                className="reveal"
-                style={{
-                  position: 'relative',
-                  paddingLeft: 28,
-                  paddingBottom: i < roadmapItems.length - 1 ? 28 : 0,
-                  borderLeft: '2px solid var(--border)',
-                }}
-              >
-                {/* Dot */}
+            {roadmapItems.map((item, i) => {
+              const isDone = 'done' in item && item.done;
+              return (
                 <div
+                  key={item.title}
+                  className="reveal"
                   style={{
-                    position: 'absolute',
-                    left: -7,
-                    top: 2,
-                    width: 12,
-                    height: 12,
-                    borderRadius: '50%',
-                    background: 'var(--accent)',
-                    border: '2px solid var(--bg)',
-                  }}
-                />
-                <h4
-                  style={{
-                    fontSize: '.9rem',
-                    fontWeight: 700,
-                    color: 'var(--text)',
-                    marginBottom: 4,
+                    position: 'relative',
+                    paddingLeft: 28,
+                    paddingBottom: i < roadmapItems.length - 1 ? 28 : 0,
+                    borderLeft: '2px solid var(--border)',
                   }}
                 >
-                  {item.title}
-                </h4>
-                <p style={{ fontSize: '.84rem', color: 'var(--text-muted)', lineHeight: 1.55 }}>
-                  {item.desc}
-                </p>
-              </div>
-            ))}
+                  {/* Dot */}
+                  <div
+                    style={{
+                      position: 'absolute',
+                      left: -7,
+                      top: 2,
+                      width: 12,
+                      height: 12,
+                      borderRadius: '50%',
+                      background: isDone ? 'var(--accent)' : 'var(--text-light)',
+                      border: '2px solid var(--bg)',
+                    }}
+                  />
+                  <h4
+                    style={{
+                      fontSize: '.9rem',
+                      fontWeight: 700,
+                      color: isDone ? 'var(--accent)' : 'var(--text)',
+                      marginBottom: 4,
+                    }}
+                  >
+                    {isDone && '✓ '}{item.title}
+                  </h4>
+                  <p style={{ fontSize: '.84rem', color: 'var(--text-muted)', lineHeight: 1.55 }}>
+                    {item.desc}
+                  </p>
+                </div>
+              );
+            })}
           </div>
         </section>
 
