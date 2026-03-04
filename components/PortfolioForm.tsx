@@ -157,6 +157,8 @@ export default function PortfolioForm({ onAnalyze }: Props) {
   const [form,  setForm]  = useState<FormState>(BLANK_FORM);
   const [step,  setStep]  = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [fetchingPrices, setFetchingPrices] = useState(false);
+  const [priceStatus, setPriceStatus] = useState<string | null>(null);
 
   /* ── Helpers ──────────────────────────────────────────────────────── */
   function updateHolding(id: string, field: keyof HoldingRow, value: string) {
@@ -179,6 +181,82 @@ export default function PortfolioForm({ onAnalyze }: Props) {
 
   function loadDemo() {
     setForm(DEMO);
+  }
+
+  /* ── Fetch live prices from Alpha Vantage ── */
+  async function fetchLivePrices() {
+    const symbols = form.holdings
+      .map(h => h.symbol.trim().toUpperCase())
+      .filter(s => s.length > 0);
+
+    if (symbols.length === 0) {
+      setPriceStatus('Add symbols first');
+      setTimeout(() => setPriceStatus(null), 2500);
+      return;
+    }
+
+    setFetchingPrices(true);
+    setPriceStatus('Fetching live prices…');
+
+    try {
+      const res = await fetch('/api/quote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ symbols }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setPriceStatus(data.error || 'Failed to fetch prices');
+        setTimeout(() => setPriceStatus(null), 4000);
+        return;
+      }
+
+      const quotes: Record<string, { price: number; error?: string }> = data.quotes;
+      let updated = 0;
+      let errors = 0;
+
+      setForm(f => ({
+        ...f,
+        holdings: f.holdings.map(h => {
+          const sym = h.symbol.trim().toUpperCase();
+          const quote = quotes[sym];
+          if (quote && quote.price > 0) {
+            updated++;
+            return { ...h, currentPrice: String(quote.price) };
+          }
+          if (quote?.error) errors++;
+          return h;
+        }),
+      }));
+
+      const msg = errors > 0
+        ? `Updated ${updated} price${updated !== 1 ? 's' : ''}, ${errors} failed`
+        : `Updated ${updated} price${updated !== 1 ? 's' : ''} ✓`;
+      setPriceStatus(msg);
+      setTimeout(() => setPriceStatus(null), 4000);
+    } catch {
+      setPriceStatus('Network error — check connection');
+      setTimeout(() => setPriceStatus(null), 4000);
+    } finally {
+      setFetchingPrices(false);
+    }
+  }
+
+  /* ── Fetch single holding price ── */
+  async function fetchSinglePrice(id: string, symbol: string) {
+    const sym = symbol.trim().toUpperCase();
+    if (!sym) return;
+
+    try {
+      const res = await fetch(`/api/quote?symbol=${encodeURIComponent(sym)}`);
+      const data = await res.json();
+      if (data.price > 0) {
+        updateHolding(id, 'currentPrice', String(data.price));
+      }
+    } catch {
+      // Silent fail for single lookups
+    }
   }
 
   /* ── Navigation ──────────────────────────────────────────────────── */
@@ -572,9 +650,33 @@ export default function PortfolioForm({ onAnalyze }: Props) {
               }}>
                 Holdings
               </span>
-              <span style={{ fontSize: '.78rem', color: 'var(--text-light)' }}>
-                {form.holdings.length} position{form.holdings.length !== 1 ? 's' : ''}
-              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                {priceStatus && (
+                  <span style={{
+                    fontSize: '.78rem', fontWeight: 600,
+                    color: priceStatus.includes('✓') ? 'var(--accent)' : priceStatus.includes('fail') || priceStatus.includes('error') ? 'var(--red)' : 'var(--text-muted)',
+                  }}>
+                    {priceStatus}
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={fetchLivePrices}
+                  disabled={fetchingPrices}
+                  style={{
+                    background: 'none', border: '1px solid var(--accent)',
+                    borderRadius: 8, padding: '5px 14px', cursor: fetchingPrices ? 'wait' : 'pointer',
+                    fontSize: '.78rem', fontWeight: 600, color: 'var(--accent)',
+                    fontFamily: 'var(--font)', transition: 'all .2s',
+                    opacity: fetchingPrices ? 0.6 : 1,
+                  }}
+                >
+                  {fetchingPrices ? 'Fetching…' : '⚡ Live Prices'}
+                </button>
+                <span style={{ fontSize: '.78rem', color: 'var(--text-light)' }}>
+                  {form.holdings.length} position{form.holdings.length !== 1 ? 's' : ''}
+                </span>
+              </div>
             </div>
 
             {/* Column Headers */}
@@ -609,6 +711,12 @@ export default function PortfolioForm({ onAnalyze }: Props) {
                     placeholder="TD.TO"
                     value={h.symbol}
                     onChange={e => updateHolding(h.id, 'symbol', e.target.value)}
+                    onBlur={e => {
+                      const sym = e.target.value.trim();
+                      if (sym && !h.currentPrice) {
+                        fetchSinglePrice(h.id, sym);
+                      }
+                    }}
                     style={{ textTransform: 'uppercase' }}
                   />
                   <input
