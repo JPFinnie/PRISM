@@ -516,7 +516,7 @@ function ActionComparison({
                       <p style={{ fontSize: '.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-muted)', marginBottom: 8 }}>
                         Details
                       </p>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 16px' }}>
+                      <div className="form-grid-2col" style={{ gap: '6px 16px' }}>
                         {Object.entries(action.actionDetails).map(([key, val]) => (
                           <div key={key} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '.82rem', padding: '4px 0', borderBottom: '1px solid var(--border)' }}>
                             <span style={{ color: 'var(--text-muted)' }}>{key.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase())}</span>
@@ -733,7 +733,7 @@ function WhatIfExplorer({
       </p>
 
       {/* Sliders */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginBottom: 24 }}>
+      <div className="form-grid-2col" style={{ marginBottom: 24 }}>
         <div>
           <label style={{ display: 'block', fontSize: '.78rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 8 }}>
             Annual Contribution: ${wiContribution.toLocaleString()}
@@ -915,6 +915,7 @@ export default function HomePage() {
     setLoading(true);
     setError(null);
     setResult(null);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
 
     try {
       const res = await fetch('/api/analyze', {
@@ -925,6 +926,7 @@ export default function HomePage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Analysis failed');
       setResult(data as AnalysisResult);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Unknown error');
     } finally {
@@ -1136,7 +1138,7 @@ export default function HomePage() {
                   <p className="section-sub" style={{ marginBottom: 20 }}>
                     Define custom return and year-1 shock parameters to model your own scenario.
                   </p>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+                  <div className="form-grid-2col">
                     <div>
                       <label style={{
                         display: 'block', fontSize: '.78rem', fontWeight: 600,
