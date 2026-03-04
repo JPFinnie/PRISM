@@ -434,7 +434,7 @@ export default function PortfolioForm({ onAnalyze }: Props) {
             }}>
               Risk Tolerance
             </label>
-            <div className="card-selector" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
+            <div className="card-selector risk-grid">
               {RISK_OPTIONS.map(opt => (
                 <button
                   key={opt.value}
@@ -472,7 +472,7 @@ export default function PortfolioForm({ onAnalyze }: Props) {
           </div>
 
           <div className="card" style={{ padding: '32px 28px' }}>
-            <div className="card-selector" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}>
+            <div className="card-selector life-stage-grid">
               {LIFE_STAGE_OPTIONS.map(opt => (
                 <button
                   key={opt.value}
@@ -507,10 +507,7 @@ export default function PortfolioForm({ onAnalyze }: Props) {
           </div>
 
           <div className="card" style={{ padding: '32px 28px' }}>
-            <div style={{
-              display: 'grid', gridTemplateColumns: '1fr 1fr',
-              gap: 24,
-            }}>
+            <div className="form-grid-2col">
               {/* Cash Balance */}
               <div>
                 <label style={{
@@ -640,17 +637,14 @@ export default function PortfolioForm({ onAnalyze }: Props) {
 
           {/* Holdings Table */}
           <div className="card" style={{ padding: '28px 24px 24px' }}>
-            <div style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              marginBottom: 16,
-            }}>
+            <div className="holdings-section-header">
               <span style={{
                 fontSize: '.82rem', fontWeight: 700, color: 'var(--text-muted)',
                 textTransform: 'uppercase', letterSpacing: '.05em',
               }}>
                 Holdings
               </span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div className="holdings-section-actions">
                 {priceStatus && (
                   <span style={{
                     fontSize: '.78rem', fontWeight: 600,
@@ -680,11 +674,7 @@ export default function PortfolioForm({ onAnalyze }: Props) {
             </div>
 
             {/* Column Headers */}
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: '2fr 1fr 1.2fr 1.2fr 1.5fr 1.5fr auto',
-              gap: 8, padding: '0 2px', marginBottom: 8,
-            }}>
+            <div className="holdings-header">
               {['Symbol', 'Shares', 'Current $', 'Cost Basis $', 'Asset Class', 'Sector', ''].map((h, i) => (
                 <span key={i} style={{
                   fontSize: '.7rem', fontWeight: 700, color: 'var(--text-light)',
@@ -698,86 +688,93 @@ export default function PortfolioForm({ onAnalyze }: Props) {
             {/* Rows */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {form.holdings.map(h => (
-                <div
-                  key={h.id}
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: '2fr 1fr 1.2fr 1.2fr 1.5fr 1.5fr auto',
-                    gap: 8, alignItems: 'center',
-                  }}
-                >
-                  <input
-                    className="input"
-                    placeholder="TD.TO"
-                    value={h.symbol}
-                    onChange={e => updateHolding(h.id, 'symbol', e.target.value)}
-                    onBlur={e => {
-                      const sym = e.target.value.trim();
-                      if (sym && !h.currentPrice) {
-                        fetchSinglePrice(h.id, sym);
-                      }
-                    }}
-                    style={{ textTransform: 'uppercase' }}
-                  />
-                  <input
-                    className="input"
-                    placeholder="100"
-                    type="number"
-                    min="0"
-                    value={h.shares}
-                    onChange={e => updateHolding(h.id, 'shares', e.target.value)}
-                  />
-                  <input
-                    className="input"
-                    placeholder="83.50"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={h.currentPrice}
-                    onChange={e => updateHolding(h.id, 'currentPrice', e.target.value)}
-                  />
-                  <input
-                    className="input"
-                    placeholder="79.00"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={h.costBasis}
-                    onChange={e => updateHolding(h.id, 'costBasis', e.target.value)}
-                  />
-                  <select
-                    className="input"
-                    value={h.assetClass}
-                    onChange={e => updateHolding(h.id, 'assetClass', e.target.value as AssetClass)}
-                  >
-                    <option value="equity">Equity</option>
-                    <option value="fixed_income">Fixed Income</option>
-                    <option value="cash">Cash</option>
-                    <option value="alternative">Alternative</option>
-                  </select>
-                  <select
-                    className="input"
-                    value={h.sector}
-                    onChange={e => updateHolding(h.id, 'sector', e.target.value)}
-                  >
-                    {SECTORS.map(s => <option key={s}>{s}</option>)}
-                  </select>
-                  <button
-                    type="button"
-                    onClick={() => removeHolding(h.id)}
-                    disabled={form.holdings.length === 1}
-                    style={{
-                      background: 'none', border: 'none', cursor: 'pointer',
-                      color: 'var(--text-light)', fontSize: '1.1rem', lineHeight: 1,
-                      padding: '0 4px', transition: 'color .2s',
-                      opacity: form.holdings.length === 1 ? 0.2 : 1,
-                    }}
-                    onMouseEnter={e => { if (form.holdings.length > 1) (e.target as HTMLElement).style.color = 'var(--red)'; }}
-                    onMouseLeave={e => { (e.target as HTMLElement).style.color = 'var(--text-light)'; }}
-                    aria-label="Remove holding"
-                  >
-                    &times;
-                  </button>
+                <div key={h.id} className="holdings-row">
+                  <div className="holdings-field" data-label="Symbol">
+                    <input
+                      className="input"
+                      placeholder="TD.TO"
+                      value={h.symbol}
+                      onChange={e => updateHolding(h.id, 'symbol', e.target.value)}
+                      onBlur={e => {
+                        const sym = e.target.value.trim();
+                        if (sym && !h.currentPrice) {
+                          fetchSinglePrice(h.id, sym);
+                        }
+                      }}
+                      style={{ textTransform: 'uppercase' }}
+                    />
+                  </div>
+                  <div className="holdings-field" data-label="Shares">
+                    <input
+                      className="input"
+                      placeholder="100"
+                      type="number"
+                      min="0"
+                      value={h.shares}
+                      onChange={e => updateHolding(h.id, 'shares', e.target.value)}
+                    />
+                  </div>
+                  <div className="holdings-field" data-label="Current $">
+                    <input
+                      className="input"
+                      placeholder="83.50"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={h.currentPrice}
+                      onChange={e => updateHolding(h.id, 'currentPrice', e.target.value)}
+                    />
+                  </div>
+                  <div className="holdings-field" data-label="Cost Basis $">
+                    <input
+                      className="input"
+                      placeholder="79.00"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={h.costBasis}
+                      onChange={e => updateHolding(h.id, 'costBasis', e.target.value)}
+                    />
+                  </div>
+                  <div className="holdings-field" data-label="Asset Class">
+                    <select
+                      className="input"
+                      value={h.assetClass}
+                      onChange={e => updateHolding(h.id, 'assetClass', e.target.value as AssetClass)}
+                    >
+                      <option value="equity">Equity</option>
+                      <option value="fixed_income">Fixed Income</option>
+                      <option value="cash">Cash</option>
+                      <option value="alternative">Alternative</option>
+                    </select>
+                  </div>
+                  <div className="holdings-field" data-label="Sector">
+                    <select
+                      className="input"
+                      value={h.sector}
+                      onChange={e => updateHolding(h.id, 'sector', e.target.value)}
+                    >
+                      {SECTORS.map(s => <option key={s}>{s}</option>)}
+                    </select>
+                  </div>
+                  <div className="holdings-field holdings-delete">
+                    <button
+                      type="button"
+                      onClick={() => removeHolding(h.id)}
+                      disabled={form.holdings.length === 1}
+                      style={{
+                        background: 'none', border: 'none', cursor: 'pointer',
+                        color: 'var(--text-light)', fontSize: '1.1rem', lineHeight: 1,
+                        padding: '0 4px', transition: 'color .2s',
+                        opacity: form.holdings.length === 1 ? 0.2 : 1,
+                      }}
+                      onMouseEnter={e => { if (form.holdings.length > 1) (e.target as HTMLElement).style.color = 'var(--red)'; }}
+                      onMouseLeave={e => { (e.target as HTMLElement).style.color = 'var(--text-light)'; }}
+                      aria-label="Remove holding"
+                    >
+                      &times;
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -796,9 +793,7 @@ export default function PortfolioForm({ onAnalyze }: Props) {
           </div>
 
           {/* Tax Room & Target Allocation */}
-          <div style={{
-            display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginTop: 20,
-          }}>
+          <div className="form-grid-2col" style={{ marginTop: 20 }}>
             {/* Tax Room */}
             <div className="card" style={{ padding: '24px 24px 28px' }}>
               <span style={{
@@ -945,7 +940,7 @@ export default function PortfolioForm({ onAnalyze }: Props) {
             }}>
               Goal Purpose
             </label>
-            <div className="card-selector" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
+            <div className="card-selector goal-grid">
               {GOAL_PURPOSE_OPTIONS.map(opt => (
                 <button
                   key={opt.value}
@@ -962,9 +957,7 @@ export default function PortfolioForm({ onAnalyze }: Props) {
 
           {/* Goal Details */}
           <div className="card" style={{ padding: '28px 28px 32px' }}>
-            <div style={{
-              display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24,
-            }}>
+            <div className="form-grid-2col">
               <div>
                 <label style={{
                   display: 'block', fontSize: '.78rem', fontWeight: 600,

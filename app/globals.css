@@ -269,20 +269,143 @@ select.input {
 .section-label { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--text-muted); margin-bottom: 4px; }
 .section-sub { font-size: .85rem; color: var(--text-light); }
 
-/* ═══ Holdings Table ═══ */
+/* ═══ Holdings Table (results) ═══ */
 .holdings-table th:hover { color: var(--accent) !important; }
+
+/* ═══ Form Grid Classes ═══ */
+.risk-grid { grid-template-columns: repeat(4, 1fr); }
+.life-stage-grid { grid-template-columns: repeat(5, 1fr); }
+.goal-grid { grid-template-columns: repeat(3, 1fr); }
+.form-grid-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+
+/* ═══ Holdings Form Grid ═══ */
+.holdings-section-header {
+  display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;
+}
+.holdings-section-actions {
+  display: flex; align-items: center; gap: 12px;
+}
+.holdings-header {
+  display: grid; grid-template-columns: 2fr 1fr 1.2fr 1.2fr 1.5fr 1.5fr auto;
+  gap: 8px; padding: 0 2px; margin-bottom: 8px;
+}
+.holdings-row {
+  display: grid; grid-template-columns: 2fr 1fr 1.2fr 1.2fr 1.5fr 1.5fr auto;
+  gap: 8px; align-items: center;
+}
+.holdings-field { display: contents; }
+.holdings-field.holdings-delete { display: contents; }
 
 /* ═══ What-If / Monte Carlo Stats Grid ═══ */
 .wi-grid, .mc-stats-grid { }
 
-/* ═══ Responsive ═══ */
+/* ═══════════════════════════════════════════════════
+   RESPONSIVE — MOBILE (≤ 640px)
+   ═══════════════════════════════════════════════════ */
 @media (max-width: 640px) {
-  .glance-grid { grid-template-columns: 1fr; }
-  .scenario-grid { grid-template-columns: 1fr; }
-  .detail-grid { grid-template-columns: 1fr; }
+
+  /* ── Form Selector Grids ── */
+  .risk-grid { grid-template-columns: 1fr 1fr !important; }
+  .life-stage-grid { grid-template-columns: repeat(3, 1fr) !important; }
+  .goal-grid { grid-template-columns: 1fr 1fr !important; }
   .card-selector { grid-template-columns: 1fr 1fr; }
-  .action-row { grid-template-columns: 140px 1fr 40px; gap: 8px; }
-  .brief-action { font-size: 1.3rem; }
+
+  /* ── Form 2-Column → 1-Column ── */
+  .form-grid-2col { grid-template-columns: 1fr !important; }
+
+  /* ── Holdings Form — Card Layout ── */
+  .holdings-section-header {
+    flex-direction: column; align-items: flex-start; gap: 10px;
+  }
+  .holdings-section-actions {
+    flex-wrap: wrap; width: 100%;
+  }
+  .holdings-header {
+    display: none !important;
+  }
+  .holdings-row {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+    padding: 14px 12px !important;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    margin-bottom: 6px;
+  }
+  .holdings-field {
+    display: flex !important; flex-direction: column; gap: 3px;
+  }
+  .holdings-field::before {
+    content: attr(data-label);
+    font-size: .65rem; font-weight: 700; color: var(--text-light);
+    text-transform: uppercase; letter-spacing: .04em;
+  }
+  .holdings-field.holdings-delete {
+    display: flex !important;
+    align-items: flex-end; justify-content: flex-end;
+    grid-column: 1 / -1;
+  }
+  .holdings-field.holdings-delete::before {
+    content: none;
+  }
+
+  /* ── Glance Grid ── */
+  .glance-grid { grid-template-columns: 1fr; }
+
+  /* ── Scenario Cards ── */
+  .scenario-grid { grid-template-columns: 1fr; }
+
+  /* ── Detail Grid (AI Analysis) ── */
+  .detail-grid { grid-template-columns: 1fr; }
+
+  /* ── Action Comparison ── */
+  .action-row { grid-template-columns: 110px 1fr 36px; gap: 8px; font-size: .82rem; }
+  .action-name { font-size: .78rem; }
+  .action-row.top-action { padding: 10px 10px; margin: 0 -10px; }
+
+  /* ── Brief Recommendation ── */
+  .brief-action { font-size: 1.2rem; }
+  .brief-narrative { font-size: .88rem; }
+
+  /* ── What-If / Monte Carlo ── */
   .wi-grid { grid-template-columns: 1fr 1fr !important; }
   .mc-stats-grid { grid-template-columns: 1fr 1fr !important; }
+
+  /* ── Card padding reduction ── */
+  .card { border-radius: 12px; }
+  .guardrails { padding: 16px 18px; }
+
+  /* ── Buttons — smaller padding on mobile ── */
+  .btn-primary, .btn-ghost, .btn-outline {
+    padding: 8px 16px; font-size: .82rem;
+  }
+
+  /* ── Toast ── */
+  .toast { font-size: .78rem; padding: 10px 18px; bottom: 16px; }
+
+  /* ── Holdings results table overflow ── */
+  .holdings-table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+  /* ── Wizard progress ── */
+  .wiz-progress { margin-bottom: 24px; }
+
+  /* ── Sel cards — smaller padding ── */
+  .sel-card { padding: 16px 8px; gap: 6px; }
+  .sel-icon { font-size: 1.3rem; }
+  .sel-label { font-size: .75rem; }
+}
+
+/* ═══════════════════════════════════════════════════
+   RESPONSIVE — SMALL MOBILE (≤ 380px)
+   ═══════════════════════════════════════════════════ */
+@media (max-width: 380px) {
+  .risk-grid { grid-template-columns: 1fr 1fr !important; }
+  .life-stage-grid { grid-template-columns: 1fr 1fr !important; }
+  .goal-grid { grid-template-columns: 1fr 1fr !important; }
+  .action-row { grid-template-columns: 90px 1fr 32px; gap: 6px; }
+  .action-name { font-size: .72rem; }
+  .glance-card { padding: 16px 10px; }
+  .brief-action { font-size: 1.1rem; }
+  .wi-grid { grid-template-columns: 1fr !important; }
+  .mc-stats-grid { grid-template-columns: 1fr !important; }
 }
