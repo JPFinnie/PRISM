@@ -116,6 +116,39 @@ export interface AnalysisResult {
   analysisTimestamp: string;
 }
 
+export interface RebalanceTrade {
+  symbol: string;
+  action: 'BUY' | 'SELL' | 'HOLD';
+  currentValue: number;
+  targetValue: number;
+  deltaValue: number;
+  deltaShares: number;
+  reason: string;
+}
+
+export interface MonteCarloResult {
+  runs: number;
+  percentiles: {
+    p10: number[];
+    p25: number[];
+    p50: number[];
+    p75: number[];
+    p90: number[];
+  };
+  medianFinal: number;
+  goalHitRate: number;
+  worstCase: number;
+  bestCase: number;
+}
+
+export interface ContributionGap {
+  requiredMonthly: number;
+  currentMonthly: number;
+  gap: number;
+  isOnTrack: boolean;
+  targetProbability: number;
+}
+
 export interface AnalyzeRequest {
   portfolio: PortfolioInput;
 }

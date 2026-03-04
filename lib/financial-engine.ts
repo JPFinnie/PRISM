@@ -3,6 +3,9 @@ import {
   PortfolioMetrics,
   ScoredAction,
   ScenarioProjection,
+  RebalanceTrade,
+  MonteCarloResult,
+  ContributionGap,
 } from './types';
 
 // ─── Return assumptions by risk tolerance ───────────────────────────────────
@@ -255,6 +258,62 @@ export function scoreActions(
     });
   }
 
+  // 7. ADD_TO_POSITION — strong performer with room to grow
+  {
+    let bestCandidate: {
+      symbol: string;
+      gainPct: number;
+      expectedReturn: number;
+      weight: number;
+      addAmount: number;
+    } | null = null;
+
+    for (const h of portfolio.holdings) {
+      const mv = h.shares * h.currentPrice;
+      const gainPct = h.costBasis > 0 ? ((h.currentPrice - h.costBasis) / h.costBasis) * 100 : 0;
+      const weight = totalValue > 0 ? (mv / totalValue) * 100 : 0;
+      const expectedReturn = securityReturn(h.symbol);
+
+      if (
+        gainPct > 15 &&
+        weight < 15 &&
+        expectedReturn > metrics.weightedAnnualReturn
+      ) {
+        if (!bestCandidate || expectedReturn > bestCandidate.expectedReturn) {
+          const addAmount = Math.min(
+            portfolio.cashBalance * 0.3,
+            totalValue * 0.05,
+          );
+          bestCandidate = { symbol: h.symbol, gainPct, expectedReturn, weight, addAmount };
+        }
+      }
+    }
+
+    if (bestCandidate && bestCandidate.addAmount > 500) {
+      const { symbol, gainPct, expectedReturn, weight, addAmount } = bestCandidate;
+      const annualBenefit = addAmount * (expectedReturn - 0.045);
+      const score = Math.min(
+        100,
+        (gainPct / 50) * 25 + (expectedReturn * 100) * 2 + (15 - weight) * 1.5,
+      );
+      actions.push({
+        type: 'ADD_TO_POSITION',
+        title: `Add to ${symbol}`,
+        rationale: `${symbol} has gained ${gainPct.toFixed(1)}% and is expected to return ${(expectedReturn * 100).toFixed(1)}%/yr — above your portfolio average. At ${weight.toFixed(1)}% weight, there's room to increase exposure.`,
+        score: Math.round(score),
+        estimatedAnnualBenefit: Math.round(annualBenefit),
+        urgency: 'low',
+        actionDetails: {
+          symbol,
+          gainPercent: Math.round(gainPct * 10) / 10,
+          currentWeight: Math.round(weight * 10) / 10,
+          suggestedAmount: Math.round(addAmount),
+          expectedReturn: Math.round(expectedReturn * 1000) / 10,
+        },
+      });
+    }
+  }
+
   return actions.sort((a, b) => b.score - a.score);
 }
 
@@ -362,5 +421,308 @@ export function projectCustomScenario(
     finalValue:       values[years],
     goalProbability:  Math.round(Math.min(97, Math.max(3, prob))),
     yearByYearValues: values,
+  };
+}
+
+// ─── Compute tradeoffs for a scored action ──────────────────────────────────
+export function computeTradeoffs(
+  action: ScoredAction,
+  metrics: PortfolioMetrics,
+  portfolio: PortfolioInput,
+): string[] {
+  const tradeoffs: string[] = [];
+
+  switch (action.type) {
+    case 'DEPLOY_CASH': {
+      const currentMonths = metrics.liquidityRatio ?? 0;
+      const excessCash = metrics.totalValue * ((metrics.currentAllocation.cashPct - portfolio.targetAllocation.cashPct) / 100);
+      const newCash = Math.max(0, portfolio.cashBalance - excessCash);
+      const newMonths = portfolio.monthlyExpenses && portfolio.monthlyExpenses > 0 ? newCash / portfolio.monthlyExpenses : 0;
+      tradeoffs.push(`Reduces liquidity ratio from ${currentMonths.toFixed(1)} to ${newMonths.toFixed(1)} months`);
+      tradeoffs.push('Deployed cash is subject to market volatility');
+      break;
+    }
+    case 'TFSA_OPTIMIZE':
+      tradeoffs.push('May trigger capital gains on transfer from taxable account');
+      tradeoffs.push('TFSA withdrawals add back room only the following January');
+      break;
+    case 'RRSP_OPTIMIZE':
+      tradeoffs.push('Reduces early-access flexibility compared to TFSA');
+      tradeoffs.push('Withdrawals are taxed as income in retirement');
+      break;
+    case 'REBALANCE': {
+      const crystallized = metrics.unrealizedGainLoss;
+      if (crystallized > 0) {
+        tradeoffs.push(`Selling overweight positions may crystallize gains of ~$${Math.round(crystallized * 0.3).toLocaleString()}`);
+      }
+      tradeoffs.push('Transaction costs apply to each trade');
+      break;
+    }
+    case 'TAX_LOSS_HARVEST':
+      tradeoffs.push('30-day superficial loss rule applies — cannot repurchase identical securities');
+      tradeoffs.push('Reduces cost basis, increasing future capital gains');
+      break;
+    case 'REDUCE_CONCENTRATION': {
+      const holding = portfolio.holdings.find(h => h.symbol === metrics.mostConcentratedHolding);
+      if (holding) {
+        const gl = (holding.currentPrice - holding.costBasis) * holding.shares;
+        tradeoffs.push(`Locks in unrealized ${gl >= 0 ? 'gain' : 'loss'} of $${Math.abs(Math.round(gl)).toLocaleString()}`);
+      }
+      tradeoffs.push('Reduces exposure to a potentially strong individual performer');
+      break;
+    }
+    case 'ADD_TO_POSITION':
+      tradeoffs.push('Increases concentration in a single security');
+      tradeoffs.push('Past performance does not guarantee future returns');
+      break;
+  }
+
+  return tradeoffs;
+}
+
+// ─── Generate rebalancing trades ────────────────────────────────────────────
+export function generateRebalanceTrades(
+  portfolio: PortfolioInput,
+  metrics: PortfolioMetrics,
+): RebalanceTrade[] {
+  const trades: RebalanceTrade[] = [];
+  const { totalValue } = metrics;
+
+  // Target values per asset class
+  const targetEquity = totalValue * (portfolio.targetAllocation.equityPct / 100);
+  const targetFI = totalValue * (portfolio.targetAllocation.fixedIncomePct / 100);
+
+  // Current values per asset class
+  const equityHoldings = portfolio.holdings.filter(h => h.assetClass === 'equity');
+  const fiHoldings = portfolio.holdings.filter(h => h.assetClass === 'fixed_income');
+
+  const currentEquity = equityHoldings.reduce((s, h) => s + h.shares * h.currentPrice, 0);
+  const currentFI = fiHoldings.reduce((s, h) => s + h.shares * h.currentPrice, 0);
+
+  const equityDelta = targetEquity - currentEquity;
+  const fiDelta = targetFI - currentFI;
+
+  // Overweight equity → sell from most concentrated first
+  if (equityDelta < -100) {
+    const sorted = [...equityHoldings].sort(
+      (a, b) => (b.shares * b.currentPrice) - (a.shares * a.currentPrice),
+    );
+    let remaining = Math.abs(equityDelta);
+    for (const h of sorted) {
+      if (remaining <= 0) break;
+      const mv = h.shares * h.currentPrice;
+      const sellValue = Math.min(remaining, mv * 0.5); // sell up to 50% of any single holding
+      const sellShares = Math.floor(sellValue / h.currentPrice);
+      if (sellShares > 0) {
+        trades.push({
+          symbol: h.symbol,
+          action: 'SELL',
+          currentValue: mv,
+          targetValue: mv - sellShares * h.currentPrice,
+          deltaValue: -(sellShares * h.currentPrice),
+          deltaShares: -sellShares,
+          reason: 'Overweight equity — reduce to target allocation',
+        });
+        remaining -= sellShares * h.currentPrice;
+      }
+    }
+  } else if (equityDelta > 100) {
+    // Underweight equity → buy proportionally into existing holdings
+    const total = currentEquity || 1;
+    for (const h of equityHoldings) {
+      const mv = h.shares * h.currentPrice;
+      const proportion = mv / total;
+      const buyValue = equityDelta * proportion;
+      const buyShares = Math.floor(buyValue / h.currentPrice);
+      if (buyShares > 0) {
+        trades.push({
+          symbol: h.symbol,
+          action: 'BUY',
+          currentValue: mv,
+          targetValue: mv + buyShares * h.currentPrice,
+          deltaValue: buyShares * h.currentPrice,
+          deltaShares: buyShares,
+          reason: 'Underweight equity — increase to target allocation',
+        });
+      }
+    }
+  }
+
+  // Underweight fixed income → buy proportionally
+  if (fiDelta > 100 && fiHoldings.length > 0) {
+    const total = currentFI || 1;
+    for (const h of fiHoldings) {
+      const mv = h.shares * h.currentPrice;
+      const proportion = mv / total;
+      const buyValue = fiDelta * proportion;
+      const buyShares = Math.floor(buyValue / h.currentPrice);
+      if (buyShares > 0) {
+        trades.push({
+          symbol: h.symbol,
+          action: 'BUY',
+          currentValue: mv,
+          targetValue: mv + buyShares * h.currentPrice,
+          deltaValue: buyShares * h.currentPrice,
+          deltaShares: buyShares,
+          reason: 'Underweight fixed income — increase to target allocation',
+        });
+      }
+    }
+  } else if (fiDelta < -100 && fiHoldings.length > 0) {
+    // Overweight fixed income → sell
+    let remaining = Math.abs(fiDelta);
+    for (const h of fiHoldings) {
+      if (remaining <= 0) break;
+      const mv = h.shares * h.currentPrice;
+      const sellValue = Math.min(remaining, mv * 0.5);
+      const sellShares = Math.floor(sellValue / h.currentPrice);
+      if (sellShares > 0) {
+        trades.push({
+          symbol: h.symbol,
+          action: 'SELL',
+          currentValue: mv,
+          targetValue: mv - sellShares * h.currentPrice,
+          deltaValue: -(sellShares * h.currentPrice),
+          deltaShares: -sellShares,
+          reason: 'Overweight fixed income — reduce to target allocation',
+        });
+        remaining -= sellShares * h.currentPrice;
+      }
+    }
+  }
+
+  // Mark holds for any equity/FI holdings not traded
+  for (const h of [...equityHoldings, ...fiHoldings]) {
+    const mv = h.shares * h.currentPrice;
+    if (!trades.find(t => t.symbol === h.symbol)) {
+      trades.push({
+        symbol: h.symbol,
+        action: 'HOLD',
+        currentValue: mv,
+        targetValue: mv,
+        deltaValue: 0,
+        deltaShares: 0,
+        reason: 'Position is within target range',
+      });
+    }
+  }
+
+  // Sort: SELL first, then BUY, then HOLD
+  const order = { SELL: 0, BUY: 1, HOLD: 2 };
+  return trades.sort((a, b) => order[a.action] - order[b.action]);
+}
+
+// ─── Monte Carlo simulation ────────────────────────────────────────────────
+const VOLATILITY: Record<string, number> = {
+  conservative: 0.06,
+  balanced: 0.10,
+  growth: 0.14,
+  aggressive: 0.18,
+};
+
+export function runMonteCarlo(
+  portfolio: PortfolioInput,
+  metrics: PortfolioMetrics,
+  runs: number = 500,
+): MonteCarloResult {
+  const years = portfolio.goal.yearsToGoal;
+  const pv = metrics.totalValue;
+  const pmt = portfolio.annualContribution;
+  const target = portfolio.goal.targetAmount;
+  const baseReturn = RETURN_ASSUMPTIONS[portfolio.riskTolerance].base;
+  const vol = VOLATILITY[portfolio.riskTolerance] ?? 0.10;
+
+  // Box-Muller transform for normal random variates
+  function randn(): number {
+    let u1 = 0, u2 = 0;
+    while (u1 === 0) u1 = Math.random();
+    while (u2 === 0) u2 = Math.random();
+    return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+  }
+
+  // Collect all path values: paths[run][year]
+  const finalValues: number[] = [];
+  const allPaths: number[][] = [];
+  let goalHits = 0;
+
+  for (let r = 0; r < runs; r++) {
+    const path: number[] = [pv];
+    let v = pv;
+    for (let y = 1; y <= years; y++) {
+      const ret = baseReturn + vol * randn();
+      v = v * (1 + ret) + pmt;
+      v = Math.max(0, v);
+      path.push(Math.round(v));
+    }
+    allPaths.push(path);
+    finalValues.push(path[years]);
+    if (path[years] >= target) goalHits++;
+  }
+
+  // Extract percentiles year by year
+  const p10: number[] = [];
+  const p25: number[] = [];
+  const p50: number[] = [];
+  const p75: number[] = [];
+  const p90: number[] = [];
+
+  for (let y = 0; y <= years; y++) {
+    const vals = allPaths.map(p => p[y]).sort((a, b) => a - b);
+    const pctile = (p: number) => vals[Math.floor(p * vals.length)] ?? 0;
+    p10.push(pctile(0.10));
+    p25.push(pctile(0.25));
+    p50.push(pctile(0.50));
+    p75.push(pctile(0.75));
+    p90.push(pctile(0.90));
+  }
+
+  const sortedFinal = [...finalValues].sort((a, b) => a - b);
+
+  return {
+    runs,
+    percentiles: { p10, p25, p50, p75, p90 },
+    medianFinal: sortedFinal[Math.floor(runs / 2)],
+    goalHitRate: Math.round((goalHits / runs) * 100),
+    worstCase: sortedFinal[Math.floor(runs * 0.05)],
+    bestCase: sortedFinal[Math.floor(runs * 0.95)],
+  };
+}
+
+// ─── Contribution gap calculator ────────────────────────────────────────────
+export function computeContributionGap(
+  portfolio: PortfolioInput,
+  metrics: PortfolioMetrics,
+  targetProb: number = 75,
+): ContributionGap {
+  const baseReturn = RETURN_ASSUMPTIONS[portfolio.riskTolerance].base;
+  // Adjust return conservatively for higher probability targets
+  const adjReturn = targetProb >= 90 ? baseReturn * 0.6
+    : targetProb >= 75 ? baseReturn * 0.8
+      : baseReturn;
+
+  const n = portfolio.goal.yearsToGoal;
+  const fv = portfolio.goal.targetAmount;
+  const pv = metrics.totalValue;
+  const r = adjReturn;
+
+  // PMT = (FV - PV × (1+r)^n) × r / ((1+r)^n - 1)
+  const compoundFactor = Math.pow(1 + r, n);
+  let requiredAnnual: number;
+  if (compoundFactor <= 1 || r === 0) {
+    requiredAnnual = n > 0 ? (fv - pv) / n : 0;
+  } else {
+    requiredAnnual = (fv - pv * compoundFactor) * r / (compoundFactor - 1);
+  }
+
+  const requiredMonthly = Math.max(0, requiredAnnual / 12);
+  const currentMonthly = portfolio.annualContribution / 12;
+  const gap = requiredMonthly - currentMonthly;
+
+  return {
+    requiredMonthly: Math.round(requiredMonthly),
+    currentMonthly: Math.round(currentMonthly),
+    gap: Math.round(gap),
+    isOnTrack: gap <= 0,
+    targetProbability: targetProb,
   };
 }

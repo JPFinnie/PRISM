@@ -1,14 +1,26 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import PortfolioForm from '@/components/PortfolioForm';
 import RecommendationCard from '@/components/RecommendationCard';
 import ScenarioChart from '@/components/ScenarioChart';
+import HoldingsTable from '@/components/HoldingsTable';
+import RebalanceWorksheet from '@/components/RebalanceWorksheet';
+import MonteCarloChart from '@/components/MonteCarloChart';
+import ContributionGapCard from '@/components/ContributionGapCard';
 import LoadingState from '@/components/LoadingState';
 import ChatPanel from '@/components/ChatPanel';
-import { PortfolioInput, AnalysisResult, ScenarioProjection } from '@/lib/types';
-import { projectCustomScenario, computeMetrics } from '@/lib/financial-engine';
+import { PortfolioInput, AnalysisResult, ScenarioProjection, RiskTolerance } from '@/lib/types';
+import {
+  projectCustomScenario,
+  computeMetrics,
+  scoreActions,
+  projectScenarios,
+  computeTradeoffs,
+  generateRebalanceTrades,
+  runMonteCarlo,
+} from '@/lib/financial-engine';
 import { generatePDF } from '@/lib/pdf-export';
 
 /* ═══════════════════════════════════════════════════
@@ -412,28 +424,129 @@ function GlanceGrid({ result }: { result: AnalysisResult }) {
    Action Comparison (inline)
    ═══════════════════════════════════════════════════ */
 
-function ActionComparison({ actions }: { actions: AnalysisResult['allActions'] }) {
+function ActionComparison({
+  actions,
+  metrics,
+  portfolio,
+}: {
+  actions: AnalysisResult['allActions'];
+  metrics: AnalysisResult['metrics'];
+  portfolio: PortfolioInput | null;
+}) {
+  const [expanded, setExpanded] = useState<string | null>(null);
+
+  function fmtBenefit(n: number): string {
+    if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
+    if (n >= 1_000) return `$${Math.round(n / 1_000)}K`;
+    if (n > 0) return `$${n}`;
+    return '—';
+  }
+
   return (
     <div>
       <p className="section-label">Action Comparison</p>
       <p className="section-sub" style={{ marginBottom: 16 }}>
-        All evaluated actions ranked by composite score
+        All evaluated actions ranked by composite score — click to expand
       </p>
       <div className="card" style={{ padding: '20px 28px' }}>
-        {actions.map((action, i) => (
-          <div key={action.type + i} className={`action-row ${i === 0 ? 'top-action' : ''}`}>
-            <span className="action-name">
-              {i === 0 && '\u2B50 '}{action.title}
-            </span>
-            <div className="action-bar-track">
+        {actions.map((action, i) => {
+          const isExpanded = expanded === action.type;
+          const tradeoffs = portfolio ? computeTradeoffs(action, metrics, portfolio) : [];
+
+          return (
+            <div key={action.type + i}>
               <div
-                className="action-bar-fill"
-                style={{ width: `${action.score}%` }}
-              />
+                className={`action-row ${i === 0 ? 'top-action' : ''}`}
+                onClick={() => setExpanded(isExpanded ? null : action.type)}
+                style={{ cursor: 'pointer' }}
+              >
+                <span className="action-name">
+                  {i === 0 && '\u2B50 '}{action.title}
+                  <span style={{ fontSize: '.72rem', color: 'var(--text-light)', marginLeft: 6 }}>
+                    {isExpanded ? '▾' : '▸'}
+                  </span>
+                </span>
+                <div className="action-bar-track">
+                  <div
+                    className="action-bar-fill"
+                    style={{ width: `${action.score}%` }}
+                  />
+                </div>
+                <span className="action-score">{action.score}</span>
+              </div>
+
+              {/* Expanded panel */}
+              <div
+                style={{
+                  maxHeight: isExpanded ? 600 : 0,
+                  opacity: isExpanded ? 1 : 0,
+                  overflow: 'hidden',
+                  transition: 'max-height .35s ease, opacity .25s ease',
+                }}
+              >
+                <div
+                  style={{
+                    padding: '16px 14px 20px',
+                    marginBottom: 8,
+                    background: 'var(--surface)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius-sm)',
+                  }}
+                >
+                  {/* Rationale */}
+                  <p style={{ fontSize: '.88rem', color: 'var(--text-secondary)', lineHeight: 1.65, marginBottom: 14 }}>
+                    {action.rationale}
+                  </p>
+
+                  {/* Badges */}
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
+                    <span className={`badge ${action.urgency === 'high' ? 'badge-red' : action.urgency === 'medium' ? 'badge-gold' : 'badge-blue'}`}>
+                      {action.urgency} urgency
+                    </span>
+                    {action.estimatedAnnualBenefit > 0 && (
+                      <span className="badge badge-green">
+                        +{fmtBenefit(action.estimatedAnnualBenefit)}/yr benefit
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Action details */}
+                  {Object.keys(action.actionDetails).length > 0 && (
+                    <div style={{ marginBottom: 14 }}>
+                      <p style={{ fontSize: '.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-muted)', marginBottom: 8 }}>
+                        Details
+                      </p>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 16px' }}>
+                        {Object.entries(action.actionDetails).map(([key, val]) => (
+                          <div key={key} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '.82rem', padding: '4px 0', borderBottom: '1px solid var(--border)' }}>
+                            <span style={{ color: 'var(--text-muted)' }}>{key.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase())}</span>
+                            <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>{typeof val === 'number' ? val.toLocaleString() : val}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Tradeoffs */}
+                  {tradeoffs.length > 0 && (
+                    <div>
+                      <p style={{ fontSize: '.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-muted)', marginBottom: 8 }}>
+                        Tradeoffs
+                      </p>
+                      <ul style={{ paddingLeft: 16, margin: 0 }}>
+                        {tradeoffs.map((t, ti) => (
+                          <li key={ti} style={{ fontSize: '.82rem', color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: 4 }}>
+                            {t}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
-            <span className="action-score">{action.score}</span>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -443,9 +556,11 @@ function ActionComparison({ actions }: { actions: AnalysisResult['allActions'] }
    AI Analysis Detail (collapsible, inline)
    ═══════════════════════════════════════════════════ */
 
-function AIAnalysisDetail({ result }: { result: AnalysisResult }) {
+function AIAnalysisDetail({ result, portfolio }: { result: AnalysisResult; portfolio: PortfolioInput | null }) {
   const [expanded, setExpanded] = useState(false);
-  const { allActions, metrics } = result;
+  const { allActions, metrics, topAction } = result;
+
+  const tradeoffs = portfolio ? computeTradeoffs(topAction, metrics, portfolio) : [];
 
   const alternativeText =
     allActions.length > 2
@@ -479,9 +594,17 @@ function AIAnalysisDetail({ result }: { result: AnalysisResult }) {
         <div className="detail-grid">
           <div className="detail-block">
             <p className="detail-block-title">Tradeoffs</p>
-            <p className="detail-block-content">
-              No significant tradeoffs identified for this action.
-            </p>
+            <div className="detail-block-content">
+              {tradeoffs.length > 0 ? (
+                <ul style={{ paddingLeft: 16, margin: 0 }}>
+                  {tradeoffs.map((t, i) => (
+                    <li key={i} style={{ marginBottom: 4 }}>{t}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p>No significant tradeoffs identified for this action.</p>
+              )}
+            </div>
           </div>
           <div className="detail-block">
             <p className="detail-block-title">What Wasn&apos;t Recommended</p>
@@ -510,6 +633,223 @@ function AIAnalysisDetail({ result }: { result: AnalysisResult }) {
 }
 
 /* ═══════════════════════════════════════════════════
+   Monte Carlo Section (memoised)
+   ═══════════════════════════════════════════════════ */
+
+function MonteCarloSection({ portfolio, metrics }: { portfolio: PortfolioInput; metrics: AnalysisResult['metrics'] }) {
+  const mc = useMemo(() => runMonteCarlo(portfolio, metrics), [portfolio, metrics]);
+  return (
+    <div className="reveal">
+      <MonteCarloChart
+        result={mc}
+        goalAmount={portfolio.goal.targetAmount}
+        yearsToGoal={portfolio.goal.yearsToGoal}
+      />
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════
+   Rebalance Section (memoised)
+   ═══════════════════════════════════════════════════ */
+
+function RebalanceSection({ portfolio, metrics }: { portfolio: PortfolioInput; metrics: AnalysisResult['metrics'] }) {
+  const trades = useMemo(() => generateRebalanceTrades(portfolio, metrics), [portfolio, metrics]);
+  return (
+    <div className="reveal">
+      <RebalanceWorksheet trades={trades} />
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════
+   What-If Explorer
+   ═══════════════════════════════════════════════════ */
+
+function WhatIfExplorer({
+  portfolio,
+  originalResult,
+  wiContribution, setWiContribution,
+  wiCash, setWiCash,
+  wiYears, setWiYears,
+  wiRisk, setWiRisk,
+}: {
+  portfolio: PortfolioInput;
+  originalResult: AnalysisResult;
+  wiContribution: number;
+  setWiContribution: (v: number) => void;
+  wiCash: number;
+  setWiCash: (v: number) => void;
+  wiYears: number;
+  setWiYears: (v: number) => void;
+  wiRisk: RiskTolerance;
+  setWiRisk: (v: RiskTolerance) => void;
+}) {
+  const modified = useMemo(() => {
+    const modPortfolio: PortfolioInput = {
+      ...portfolio,
+      annualContribution: wiContribution,
+      cashBalance: wiCash,
+      riskTolerance: wiRisk,
+      goal: { ...portfolio.goal, yearsToGoal: wiYears },
+    };
+    const m = computeMetrics(modPortfolio);
+    const actions = scoreActions(modPortfolio, m);
+    const scenarios = projectScenarios(modPortfolio, m);
+    const baseScenario = scenarios.find(s => s.name === 'base');
+    return {
+      goalProb: baseScenario?.goalProbability ?? 0,
+      topAction: actions[0]?.title ?? '—',
+      topScore: actions[0]?.score ?? 0,
+      weightedReturn: m.weightedAnnualReturn,
+    };
+  }, [portfolio, wiContribution, wiCash, wiYears, wiRisk]);
+
+  const original = useMemo(() => {
+    const baseScenario = originalResult.scenarios.find(s => s.name === 'base');
+    return {
+      goalProb: baseScenario?.goalProbability ?? 0,
+      topAction: originalResult.topAction.title,
+      topScore: originalResult.topAction.score,
+      weightedReturn: originalResult.metrics.weightedAnnualReturn,
+    };
+  }, [originalResult]);
+
+  function delta(current: number, orig: number): { text: string; color: string } {
+    const d = current - orig;
+    if (Math.abs(d) < 0.1) return { text: '—', color: 'var(--text-light)' };
+    return {
+      text: `${d > 0 ? '▲' : '▼'} ${d > 0 ? '+' : ''}${d < 1 && d > -1 ? d.toFixed(1) : Math.round(d)}`,
+      color: d > 0 ? 'var(--accent)' : 'var(--red)',
+    };
+  }
+
+  const riskOptions: RiskTolerance[] = ['conservative', 'balanced', 'growth', 'aggressive'];
+
+  return (
+    <div className="card" style={{ padding: '24px 28px' }}>
+      <p className="section-sub" style={{ marginBottom: 20 }}>
+        Adjust parameters to see how changes affect your portfolio outcomes in real-time.
+      </p>
+
+      {/* Sliders */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginBottom: 24 }}>
+        <div>
+          <label style={{ display: 'block', fontSize: '.78rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 8 }}>
+            Annual Contribution: ${wiContribution.toLocaleString()}
+          </label>
+          <input type="range" min="0" max="50000" step="500" value={wiContribution} onChange={e => setWiContribution(Number(e.target.value))} style={{ width: '100%', accentColor: 'var(--accent)' }} />
+          <div className="flex justify-between" style={{ fontSize: '.72rem', color: 'var(--text-light)', marginTop: 4 }}>
+            <span>$0</span><span>$50K</span>
+          </div>
+        </div>
+        <div>
+          <label style={{ display: 'block', fontSize: '.78rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 8 }}>
+            Cash Balance: ${wiCash.toLocaleString()}
+          </label>
+          <input type="range" min="0" max="100000" step="1000" value={wiCash} onChange={e => setWiCash(Number(e.target.value))} style={{ width: '100%', accentColor: 'var(--accent)' }} />
+          <div className="flex justify-between" style={{ fontSize: '.72rem', color: 'var(--text-light)', marginTop: 4 }}>
+            <span>$0</span><span>$100K</span>
+          </div>
+        </div>
+        <div>
+          <label style={{ display: 'block', fontSize: '.78rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 8 }}>
+            Years to Goal: {wiYears}
+          </label>
+          <input type="range" min="1" max="50" step="1" value={wiYears} onChange={e => setWiYears(Number(e.target.value))} style={{ width: '100%', accentColor: 'var(--accent)' }} />
+          <div className="flex justify-between" style={{ fontSize: '.72rem', color: 'var(--text-light)', marginTop: 4 }}>
+            <span>1 yr</span><span>50 yrs</span>
+          </div>
+        </div>
+        <div>
+          <label style={{ display: 'block', fontSize: '.78rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 8 }}>
+            Risk Tolerance
+          </label>
+          <div style={{ display: 'flex', gap: 6 }}>
+            {riskOptions.map(r => (
+              <button
+                key={r}
+                onClick={() => setWiRisk(r)}
+                style={{
+                  flex: 1,
+                  padding: '6px 4px',
+                  borderRadius: 8,
+                  fontSize: '.72rem',
+                  fontWeight: 600,
+                  border: '1px solid',
+                  borderColor: wiRisk === r ? 'var(--accent)' : 'var(--border)',
+                  background: wiRisk === r ? 'var(--accent-bg)' : 'transparent',
+                  color: wiRisk === r ? 'var(--accent)' : 'var(--text-muted)',
+                  cursor: 'pointer',
+                  transition: 'all .2s',
+                  fontFamily: 'var(--font)',
+                  textTransform: 'capitalize',
+                }}
+              >
+                {r.slice(0, 4)}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Comparison grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }} className="wi-grid">
+        {[
+          {
+            label: 'Goal Probability',
+            orig: `${original.goalProb}%`,
+            mod: `${modified.goalProb}%`,
+            d: delta(modified.goalProb, original.goalProb),
+          },
+          {
+            label: 'Top Action',
+            orig: original.topAction,
+            mod: modified.topAction,
+            d: modified.topAction !== original.topAction
+              ? { text: 'CHANGED', color: 'var(--gold)' }
+              : { text: 'Same', color: 'var(--text-light)' },
+          },
+          {
+            label: 'Top Score',
+            orig: String(original.topScore),
+            mod: String(modified.topScore),
+            d: delta(modified.topScore, original.topScore),
+          },
+          {
+            label: 'Weighted Return',
+            orig: `${(original.weightedReturn * 100).toFixed(1)}%`,
+            mod: `${(modified.weightedReturn * 100).toFixed(1)}%`,
+            d: delta(modified.weightedReturn * 100, original.weightedReturn * 100),
+          },
+        ].map(card => (
+          <div
+            key={card.label}
+            style={{
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radius-sm)',
+              padding: '16px 14px',
+              textAlign: 'center',
+            }}
+          >
+            <p style={{ fontSize: '.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.04em', color: 'var(--text-muted)', marginBottom: 8 }}>
+              {card.label}
+            </p>
+            <p style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text)', marginBottom: 4 }}>
+              {card.mod}
+            </p>
+            <p style={{ fontSize: '.78rem', fontWeight: 700, color: card.d.color }}>
+              {card.d.text}
+            </p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════
    Main Page
    ═══════════════════════════════════════════════════ */
 
@@ -524,6 +864,13 @@ export default function HomePage() {
   const [customReturn, setCustomReturn] = useState(8);
   const [customShock, setCustomShock] = useState(-15);
   const [customScenario, setCustomScenario] = useState<ScenarioProjection | null>(null);
+
+  /* ── What-If state ── */
+  const [whatIfOpen, setWhatIfOpen] = useState(false);
+  const [wiContribution, setWiContribution] = useState(0);
+  const [wiCash, setWiCash] = useState(0);
+  const [wiYears, setWiYears] = useState(10);
+  const [wiRisk, setWiRisk] = useState<RiskTolerance>('balanced');
 
   const actionCompRef = useRef<HTMLDivElement>(null);
 
@@ -544,6 +891,16 @@ export default function HomePage() {
     document.documentElement.className = next;
     localStorage.setItem('prism-theme', next);
   }
+
+  /* ── Sync What-If defaults from portfolio ── */
+  useEffect(() => {
+    if (portfolio) {
+      setWiContribution(portfolio.annualContribution);
+      setWiCash(portfolio.cashBalance);
+      setWiYears(portfolio.goal.yearsToGoal);
+      setWiRisk(portfolio.riskTolerance);
+    }
+  }, [portfolio]);
 
   /* ── Toast auto-clear ── */
   useEffect(() => {
@@ -736,6 +1093,13 @@ export default function HomePage() {
               <GlanceGrid result={result} />
             </div>
 
+            {/* 4b. Holdings Breakdown */}
+            {portfolio && (
+              <div className="reveal">
+                <HoldingsTable portfolio={portfolio} metrics={result.metrics} />
+              </div>
+            )}
+
             {/* 5. Scenario Chart */}
             <div className="reveal">
               <ScenarioChart
@@ -821,8 +1185,8 @@ export default function HomePage() {
                       className="btn-primary"
                       onClick={() => {
                         if (portfolio && result) {
-                          const metrics = computeMetrics(portfolio);
-                          const cs = projectCustomScenario(portfolio, metrics, {
+                          const m = computeMetrics(portfolio);
+                          const cs = projectCustomScenario(portfolio, m, {
                             annualReturn: customReturn / 100,
                             year1Shock: customShock / 100,
                             label: `Custom (${customReturn}% / ${customShock}% yr1)`,
@@ -856,24 +1220,78 @@ export default function HomePage() {
               </div>
             </div>
 
-            {/* 6. Action Comparison */}
+            {/* 5c. Monte Carlo Analysis */}
+            {portfolio && (
+              <MonteCarloSection portfolio={portfolio} metrics={result.metrics} />
+            )}
+
+            {/* 6. Action Comparison (with drill-down) */}
             <div className="reveal" ref={actionCompRef}>
-              <ActionComparison actions={result.allActions} />
+              <ActionComparison actions={result.allActions} metrics={result.metrics} portfolio={portfolio} />
             </div>
 
-            {/* 7. AI Analysis Detail */}
+            {/* 6b. Rebalancing Worksheet — only when REBALANCE is scored */}
+            {portfolio && result.allActions.some(a => a.type === 'REBALANCE') && (
+              <RebalanceSection portfolio={portfolio} metrics={result.metrics} />
+            )}
+
+            {/* 7. What-If Explorer */}
+            {portfolio && (
+              <div className="reveal">
+                <div className="detail-toggle">
+                  <p className="section-label" style={{ margin: 0 }}>What-If Explorer</p>
+                  <button
+                    onClick={() => setWhatIfOpen(!whatIfOpen)}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--accent)',
+                      fontSize: '.85rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      fontFamily: 'var(--font)',
+                    }}
+                  >
+                    {whatIfOpen ? 'Hide' : 'Explore scenarios'}
+                  </button>
+                </div>
+                <div className={`detail-content ${whatIfOpen ? 'expanded' : 'collapsed'}`}>
+                  <WhatIfExplorer
+                    portfolio={portfolio}
+                    originalResult={result}
+                    wiContribution={wiContribution}
+                    setWiContribution={setWiContribution}
+                    wiCash={wiCash}
+                    setWiCash={setWiCash}
+                    wiYears={wiYears}
+                    setWiYears={setWiYears}
+                    wiRisk={wiRisk}
+                    setWiRisk={setWiRisk}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* 8. Contribution Gap */}
+            {portfolio && (
+              <div className="reveal">
+                <ContributionGapCard portfolio={portfolio} metrics={result.metrics} />
+              </div>
+            )}
+
+            {/* 9. AI Analysis Detail */}
             <div className="reveal">
-              <AIAnalysisDetail result={result} />
+              <AIAnalysisDetail result={result} portfolio={portfolio} />
             </div>
 
-            {/* 8. Chat Panel */}
+            {/* 10. Chat Panel */}
             {portfolio && (
               <div className="reveal">
                 <ChatPanel analysis={result} portfolio={portfolio} />
               </div>
             )}
 
-            {/* 9. Guardrails */}
+            {/* 11. Guardrails */}
             <div className="reveal">
               <div className="guardrails">
                 <p style={{ marginBottom: 10 }}>
