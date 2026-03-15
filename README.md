@@ -76,10 +76,5 @@ lib/
   types.ts
 ```
 
-## Inspired by
-
-[WealthSimple Pulse](https://github.com/Chimppppy/WealthSimple-AI-Submission) — adapted and extended with Canadian tax-sheltered account optimisation (TFSA/RRSP) and a portfolio chat interface.
-
----
 
 *This tool is for informational purposes only and does not constitute personalised financial advice. Consult a registered financial advisor (CFP/CFA) before making investment decisions.*
